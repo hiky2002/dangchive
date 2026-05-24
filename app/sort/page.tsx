@@ -7,14 +7,12 @@ import type { Dog, Photo } from "@/types";
 import { DogDrawer }          from "@/components/DogDrawer";
 import { FailedPhotoBanner }  from "@/components/FailedPhotoBanner";
 
-// ─── 상수 ────────────────────────────────────────────────────
 const SESSION_BATCH_KEY = "dangchive_batch_id";
 
 function getPhotoUrl(storagePath: string) {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/dangchive/${storagePath}`;
 }
 
-// ─── 페이지 진입점 (Suspense 경계 필요) ──────────────────────
 export default function SortPage() {
   return (
     <Suspense fallback={<PageSpinner />}>
@@ -31,23 +29,21 @@ function PageSpinner({ text = "불러오는 중..." }: { text?: string }) {
   );
 }
 
-// ─── 실제 클라이언트 로직 ────────────────────────────────────
 function SortInner() {
   const params  = useSearchParams();
   const batchId =
     params.get("batch_id") ??
     (typeof window !== "undefined" ? sessionStorage.getItem(SESSION_BATCH_KEY) : null);
 
-  const [photos,       setPhotos]       = useState<Photo[]>([]);
-  const [dogs,         setDogs]         = useState<Dog[]>([]);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState<string | null>(null);
-  const [selectedIds,  setSelectedIds]  = useState<Set<string>>(new Set());
-  const [drawerOpen,   setDrawerOpen]   = useState(false);
+  const [photos,        setPhotos]        = useState<Photo[]>([]);
+  const [dogs,          setDogs]          = useState<Dog[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState<string | null>(null);
+  const [selectedIds,   setSelectedIds]   = useState<Set<string>>(new Set());
+  const [drawerOpen,    setDrawerOpen]    = useState(false);
   const [actionLoading, setActionLoading] =
     useState<"needs_name" | "naming" | "drive" | null>(null);
 
-  // ── 초기 데이터 로드
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -74,7 +70,6 @@ function SortInner() {
     load();
   }, [batchId]);
 
-  // ── 선택 토글
   function toggle(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -85,7 +80,6 @@ function SortInner() {
   const selectAll   = () => setSelectedIds(new Set(photos.map((p) => p.photo_id)));
   const clearSelect = () => setSelectedIds(new Set());
 
-  // ── "이 아이 누구예요?" → needs_name
   async function handleNeedsName() {
     if (!selectedIds.size) return;
     setActionLoading("needs_name");
@@ -109,8 +103,8 @@ function SortInner() {
     }
   }
 
-  // ── 이름 지정 (Drawer 확정 콜백)
-  async function handleAssignDog(dogId: string, dogName: string) {
+  // 멀티 아이 지정
+  async function handleAssignDogs(dogIds: string[], dogsArr: Dog[]) {
     setActionLoading("naming");
     setError(null);
     try {
@@ -119,20 +113,14 @@ function SortInner() {
           fetch("/api/upload", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ photoId, dogId }),
+            body: JSON.stringify({ photoId, dogIds }),
           })
         )
       );
-      const dogObj: Dog = {
-        dog_id: dogId,
-        dog_name: dogName,
-        drive_folder_id: null,
-        created_at: "",
-      };
       setPhotos((prev) =>
         prev.map((p) =>
           selectedIds.has(p.photo_id)
-            ? { ...p, dog_id: dogId, dog: dogObj, status: "named" }
+            ? { ...p, dog_id: dogIds[0], dog: dogsArr[0], dogs: dogsArr, status: "named" }
             : p
         )
       );
@@ -145,7 +133,6 @@ function SortInner() {
     }
   }
 
-  // ── 구글 드라이브 전송
   async function handleSendToDrive() {
     const targets = photos.filter(
       (p) => selectedIds.has(p.photo_id) && p.status === "named"
@@ -174,7 +161,6 @@ function SortInner() {
     setActionLoading(null);
   }
 
-  // ── 새 아이 추가 (Drawer에서 호출)
   async function handleAddDog(name: string): Promise<Dog | null> {
     const res = await fetch("/api/dogs", {
       method: "POST",
@@ -191,7 +177,6 @@ function SortInner() {
     return data.dog;
   }
 
-  // ── 파생 상태
   const hasNamedSelected = photos.some(
     (p) => selectedIds.has(p.photo_id) && p.status === "named"
   );
@@ -225,17 +210,14 @@ function SortInner() {
         )}
       </div>
 
-      {/* 에러 */}
       {error && (
         <p className="mx-4 mt-3 text-sm text-red-500 bg-red-50 px-3 py-2 rounded-xl">
           {error}
         </p>
       )}
 
-      {/* 드라이브 전송 실패 배너 */}
       <FailedPhotoBanner />
 
-      {/* 선택 카운트 */}
       {selectedIds.size > 0 && (
         <div className="mx-4 mt-3 px-4 py-2.5 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between">
           <span className="text-sm font-medium text-blue-700">
@@ -247,7 +229,6 @@ function SortInner() {
         </div>
       )}
 
-      {/* 사진 그리드 */}
       {photos.length === 0 ? (
         <div className="text-center mt-24 text-gray-400">
           <p className="text-5xl mb-3">📭</p>
@@ -266,7 +247,6 @@ function SortInner() {
         </div>
       )}
 
-      {/* 하단 액션 바 */}
       <BottomBar
         selectedCount={selectedIds.size}
         hasNamedSelected={hasNamedSelected}
@@ -276,14 +256,13 @@ function SortInner() {
         onSendToDrive={handleSendToDrive}
       />
 
-      {/* 이름 지정 드로어 */}
       <DogDrawer
         open={drawerOpen}
         dogs={dogs}
         subtitle={`${selectedIds.size}장에 적용됩니다`}
         busy={actionLoading === "naming"}
         onClose={() => setDrawerOpen(false)}
-        onAssign={handleAssignDog}
+        onAssign={handleAssignDogs}
         onAddDog={handleAddDog}
       />
 
@@ -312,6 +291,10 @@ function PhotoCell({
   onToggle: () => void;
 }) {
   const badge = STATUS_BADGE[photo.status];
+  const dogLabel =
+    (photo.dogs?.length ?? 0) > 0
+      ? photo.dogs!.map((d) => d.dog_name).join(", ")
+      : photo.dog?.dog_name ?? null;
 
   return (
     <div
@@ -327,7 +310,6 @@ function PhotoCell({
         className="w-full h-full object-cover"
       />
 
-      {/* 선택 오버레이 */}
       {selected && (
         <div className="absolute inset-0 bg-blue-500/20">
           <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-blue-500 shadow flex items-center justify-center">
@@ -344,16 +326,15 @@ function PhotoCell({
         </div>
       )}
 
-      {/* 하단 배지 행 */}
       <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between px-1 py-1 gap-0.5">
         {badge && (
           <span className={`text-[9px] font-bold text-white px-1.5 py-0.5 rounded ${badge.cls}`}>
             {badge.label}
           </span>
         )}
-        {photo.dog?.dog_name && (
-          <span className="text-[9px] font-medium text-white px-1.5 py-0.5 rounded bg-black/50 truncate max-w-[4.5rem]">
-            {photo.dog.dog_name}
+        {dogLabel && (
+          <span className="text-[9px] font-medium text-white px-1.5 py-0.5 rounded bg-black/50 truncate max-w-[5rem]">
+            {dogLabel}
           </span>
         )}
       </div>
@@ -386,7 +367,6 @@ function BottomBar({
     <div className="fixed bottom-16 inset-x-0 z-[35] bg-white border-t border-gray-100 px-4 py-4">
       <div className="max-w-md mx-auto flex flex-col gap-2">
 
-        {/* 드라이브 전송 (named 사진 선택 시) */}
         {hasNamedSelected && (
           <button
             onClick={onSendToDrive}
@@ -400,7 +380,6 @@ function BottomBar({
           </button>
         )}
 
-        {/* 이름 지정 / 누구예요 */}
         <div className="flex gap-2">
           <button
             onClick={onNeedsName}

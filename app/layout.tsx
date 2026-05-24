@@ -7,7 +7,7 @@ import { OfflineToast }     from "@/components/OfflineToast";
 
 export const metadata: Metadata = {
   title: "댕카이브",
-  description: "유기견 사진 아카이브 서비스",
+  description: "LCKD 아이들 사진 아카이브 서비스",
 };
 
 export const viewport: Viewport = {

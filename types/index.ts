@@ -27,5 +27,6 @@ export type Photo = {
   created_at: string;
   // join
   dog?: Dog;
+  dogs?: Dog[];   // photo_dogs 다대다
   batch?: Batch;
 };

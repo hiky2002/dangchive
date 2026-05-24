@@ -226,12 +226,11 @@ function BatchDetailModal({
   const [sending,    setSending]    = useState(false);
   const [sendError,  setSendError]  = useState<string | null>(null);
 
-  // 드로어 확정 → 미리보기 상태 저장 (API 호출 없음)
-  function handleDrawerAssign(dogId: string, dogName: string) {
-    const found = dogs.find((d) => d.dog_id === dogId);
-    setPickedDog(
-      found ?? { dog_id: dogId, dog_name: dogName, drive_folder_id: null, created_at: "" }
-    );
+  // 드로어 확정 → 미리보기 상태 저장 (첫 번째 아이 사용)
+  function handleDrawerAssign(dogIds: string[], dogsArr: Dog[]) {
+    const first = dogsArr[0];
+    if (!first) return;
+    setPickedDog(first);
     setDrawerOpen(false);
   }
 

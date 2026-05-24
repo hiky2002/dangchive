@@ -9,6 +9,7 @@ const TABS = [
   { href: "/upload", label: "올리기",   icon: "📷" },
   { href: "/sort",   label: "정리하기", icon: "🗂️" },
   { href: "/review", label: "이름 확인", icon: "❓" },
+  { href: "/dogs",   label: "아이 관리", icon: "🐾" },
 ] as const;
 
 export function BottomNav() {

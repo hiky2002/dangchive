@@ -5,19 +5,19 @@ const tabs = [
     href: "/upload",
     label: "사진 업로드",
     emoji: "📸",
-    description: "유기견 사진을 찍어 업로드하세요",
+    description: "LCKD 아이들 사진을 찍어 업로드하세요",
   },
   {
     href: "/sort",
     label: "사진 정리",
     emoji: "🗂️",
-    description: "내가 올린 사진에 이름을 지정하세요",
+    description: "내가 올린 사진에 아이 이름을 지정하세요",
   },
   {
     href: "/review",
     label: "이름 확인",
     emoji: "✅",
-    description: "이름 확인이 필요한 사진 목록",
+    description: "아직 이름 확인이 필요한 아이들이 있어요! 도와주세요!",
   },
 ];
 

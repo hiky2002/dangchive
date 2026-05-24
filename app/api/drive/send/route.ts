@@ -16,10 +16,10 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient();
 
-  // 사진 + 아이 정보 일괄 조회
+  // 사진 + 아이 정보 일괄 조회 (photo_dogs 다대다)
   const { data: photos, error: fetchErr } = await supabase
     .from("photos")
-    .select("*, dog:dogs(dog_id, dog_name, drive_folder_id)")
+    .select("*, dog:dogs(dog_id, dog_name, drive_folder_id), photo_dogs(dog_id, dog:dogs(dog_id, dog_name, drive_folder_id))")
     .in("photo_id", photoIds);
 
   if (fetchErr || !photos) {
@@ -45,13 +45,24 @@ export async function POST(req: NextRequest) {
   let failCount = 0;
   const results: { photo_id: string; saved_name?: string; drive_url?: string; error?: string }[] = [];
 
+  type DogInfo = { dog_id: string; dog_name: string; drive_folder_id: string | null };
+
   for (const photo of photos) {
-    const dog = photo.dog as { dog_id: string; dog_name: string; drive_folder_id: string | null } | null;
+    // photo_dogs 우선, 없으면 단일 dog FK로 폴백
+    const dogsFromJoin: DogInfo[] = ((photo.photo_dogs ?? []) as any[])
+      .map((pd: any) => pd.dog)
+      .filter(Boolean);
+    const dogs: DogInfo[] =
+      dogsFromJoin.length > 0
+        ? dogsFromJoin
+        : photo.dog
+          ? [photo.dog as DogInfo]
+          : [];
 
     console.log(`\n[drive/send] --- photo_id=${photo.photo_id} ---`);
-    console.log(`  dog: ${dog ? `${dog.dog_name} (${dog.dog_id}), folder=${dog.drive_folder_id ?? "없음"}` : "❌ 미지정"}`);
+    console.log(`  dogs: ${dogs.map(d => d.dog_name).join(", ") || "❌ 미지정"}`);
 
-    if (!dog) {
+    if (dogs.length === 0) {
       await supabase.from("photos").update({ status: "failed" }).eq("photo_id", photo.photo_id);
       failCount++;
       results.push({ photo_id: photo.photo_id, error: "dog_id 미지정" });
@@ -59,45 +70,8 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      // ── 1. 폴더 확인/생성 ──────────────────────────────────────
-      let cached = dogCache.get(dog.dog_id);
-
-      if (!cached) {
-        let folderId = dog.drive_folder_id ?? null;
-
-        if (!folderId) {
-          console.log(`  [1] 폴더 없음 → ensureDogFolder("${dog.dog_name}") 호출`);
-          folderId = await ensureDogFolder(dog.dog_name);
-          console.log(`  [1] 폴더 생성/확인 완료: ${folderId}`);
-
-          await supabase
-            .from("dogs")
-            .update({ drive_folder_id: folderId })
-            .eq("dog_id", dog.dog_id);
-        } else {
-          console.log(`  [1] 기존 폴더 사용: ${folderId}`);
-        }
-
-        const existingCount = await countFilesInFolder(folderId);
-        console.log(`  [1] 폴더 내 기존 파일 수: ${existingCount}`);
-        cached = { folderId, nextSeq: existingCount + 1 };
-        dogCache.set(dog.dog_id, cached);
-      }
-
-      const { folderId, nextSeq } = cached;
-
-      // ── 2. 파일명 생성 ─────────────────────────────────────────
-      const date      = new Date(photo.created_at);
-      const yy        = String(date.getFullYear()).slice(2);
-      const mm        = String(date.getMonth() + 1).padStart(2, "0");
-      const dd        = String(date.getDate()).padStart(2, "0");
-      const seqStr    = String(nextSeq).padStart(3, "0");
-      const savedName = `${yy}${mm}${dd}_${dog.dog_name}_${photo.upload_user}_${seqStr}.jpg`;
-      cached.nextSeq++;
-      console.log(`  [2] 저장명: ${savedName}`);
-
-      // ── 3. Supabase Storage 다운로드 ───────────────────────────
-      console.log(`  [3] Storage 다운로드: ${photo.storage_path}`);
+      // ── 1. Supabase Storage 다운로드 (한 번만) ─────────────────
+      console.log(`  [1] Storage 다운로드: ${photo.storage_path}`);
       const { data: fileData, error: dlErr } = await supabase.storage
         .from("dangchive")
         .download(photo.storage_path);
@@ -107,31 +81,68 @@ export async function POST(req: NextRequest) {
       }
 
       const buffer = Buffer.from(await fileData.arrayBuffer());
-      console.log(`  [3] 다운로드 완료: ${buffer.byteLength} bytes`);
-      const stream = Readable.from(buffer);
+      console.log(`  [1] 다운로드 완료: ${buffer.byteLength} bytes`);
 
-      // ── 4. 구글 드라이브 업로드 ────────────────────────────────
-      console.log(`  [4] Drive 업로드 시작 → folder: ${folderId}, name: ${savedName}`);
-      const driveRes = await drive.files.create({
-        requestBody: { name: savedName, parents: [folderId] },
-        media:       { mimeType: "image/jpeg", body: stream },
-        fields:      "id, webViewLink",
-      });
+      // ── 2. 파일명 생성 (모든 아이 이름 언더스코어 연결) ─────────
+      const date      = new Date(photo.created_at);
+      const yy        = String(date.getFullYear()).slice(2);
+      const mm        = String(date.getMonth() + 1).padStart(2, "0");
+      const dd        = String(date.getDate()).padStart(2, "0");
+      const dogNames  = dogs.map(d => d.dog_name).join("_");
 
-      const driveUrl = driveRes.data.webViewLink ?? null;
-      console.log(`  [4] Drive 업로드 성공 → id=${driveRes.data.id}, url=${driveUrl}`);
+      // ── 3. 각 아이 폴더에 업로드 ───────────────────────────────
+      let firstDriveUrl: string | null = null;
 
-      // ── 5. DB 업데이트 ─────────────────────────────────────────
+      for (const dog of dogs) {
+        let cached = dogCache.get(dog.dog_id);
+
+        if (!cached) {
+          let folderId = dog.drive_folder_id ?? null;
+
+          if (!folderId) {
+            console.log(`  [3] 폴더 없음 → ensureDogFolder("${dog.dog_name}") 호출`);
+            folderId = await ensureDogFolder(dog.dog_name);
+            await supabase.from("dogs").update({ drive_folder_id: folderId }).eq("dog_id", dog.dog_id);
+          }
+
+          const existingCount = await countFilesInFolder(folderId);
+          cached = { folderId, nextSeq: existingCount + 1 };
+          dogCache.set(dog.dog_id, cached);
+        }
+
+        const { folderId, nextSeq } = cached;
+        const seqStr    = String(nextSeq).padStart(3, "0");
+        const savedName = `${yy}${mm}${dd}_${dogNames}_${seqStr}.jpg`;
+        cached.nextSeq++;
+
+        console.log(`  [3] Drive 업로드: folder=${folderId}, name=${savedName}`);
+        const stream = Readable.from(buffer);
+        const driveRes = await drive.files.create({
+          requestBody: { name: savedName, parents: [folderId] },
+          media:       { mimeType: "image/jpeg", body: stream },
+          fields:      "id, webViewLink",
+        });
+        if (!firstDriveUrl) firstDriveUrl = driveRes.data.webViewLink ?? null;
+        console.log(`  [3] 업로드 완료 → ${driveRes.data.id}`);
+      }
+
+      // ── 4. DB 업데이트 ─────────────────────────────────────────
+      const dogNames0 = dogs.map(d => d.dog_name).join("_");
+      const date2     = new Date(photo.created_at);
+      const yy2       = String(date2.getFullYear()).slice(2);
+      const mm2       = String(date2.getMonth() + 1).padStart(2, "0");
+      const dd2       = String(date2.getDate()).padStart(2, "0");
+      const finalName = `${yy2}${mm2}${dd2}_${dogNames0}_001.jpg`;
+
       await supabase
         .from("photos")
-        .update({ status: "sent", saved_name: savedName, drive_url: driveUrl })
+        .update({ status: "sent", saved_name: finalName, drive_url: firstDriveUrl })
         .eq("photo_id", photo.photo_id);
 
       successCount++;
-      results.push({ photo_id: photo.photo_id, saved_name: savedName, drive_url: driveUrl ?? undefined });
+      results.push({ photo_id: photo.photo_id, saved_name: finalName, drive_url: firstDriveUrl ?? undefined });
 
     } catch (err) {
-      // GaxiosError (googleapis) 상세 분해
       const message    = err instanceof Error ? err.message : String(err);
       const httpStatus = (err as any)?.response?.status;
       const apiErrors  = (err as any)?.response?.data?.error;
@@ -141,14 +152,10 @@ export async function POST(req: NextRequest) {
       if (httpStatus)  console.error(`     HTTP:       ${httpStatus}`);
       if (apiErrors)   console.error(`     API error:  ${JSON.stringify(apiErrors)}`);
 
-      await supabase
-        .from("photos")
-        .update({ status: "failed" })
-        .eq("photo_id", photo.photo_id);
+      await supabase.from("photos").update({ status: "failed" }).eq("photo_id", photo.photo_id);
 
       failCount++;
-      const detail = apiErrors?.message ?? message;
-      results.push({ photo_id: photo.photo_id, error: detail });
+      results.push({ photo_id: photo.photo_id, error: (apiErrors as any)?.message ?? message });
     }
   }
 

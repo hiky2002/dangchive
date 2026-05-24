@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from("photos")
-    .select("*, dog:dogs(dog_id, dog_name), batch:batches(batch_id, upload_user, status)")
+    .select("*, dog:dogs(dog_id, dog_name, drive_folder_id, created_at), batch:batches(batch_id, upload_user, status), photo_dogs(dog_id, dog:dogs(dog_id, dog_name, drive_folder_id, created_at))")
     .eq("status", status)
     .order("created_at", { ascending: true });
 
@@ -24,7 +24,19 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ photos: data });
+  // photo_dogs → dogs[] 변환 (없으면 기존 dog FK로 폴백)
+  const photos = (data ?? []).map((p: any) => {
+    const dogsFromJoin: typeof p.dog[] = (p.photo_dogs ?? [])
+      .map((pd: any) => pd.dog)
+      .filter(Boolean);
+    return {
+      ...p,
+      dogs: dogsFromJoin.length > 0 ? dogsFromJoin : (p.dog ? [p.dog] : []),
+      photo_dogs: undefined,
+    };
+  });
+
+  return NextResponse.json({ photos });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -131,36 +143,55 @@ export async function POST(req: NextRequest) {
 
 // ─────────────────────────────────────────────────────────────
 // PATCH /api/upload
-//   이름 지정: { photoId, dogId }               → status: 'named'
+//   이름 지정: { photoId, dogIds: string[] }     → status: 'named'
+//   (하위호환) { photoId, dogId: string }        → status: 'named'
 //   누구예요:  { photoId, status: 'needs_name' } → status: 'needs_name'
 // ─────────────────────────────────────────────────────────────
 export async function PATCH(req: NextRequest) {
-  const { photoId, dogId, status } = await req.json();
+  const { photoId, dogId, dogIds, status } = await req.json();
   if (!photoId) {
     return NextResponse.json({ error: "photoId 필요" }, { status: 400 });
   }
 
-  let update: Record<string, string>;
-  if (dogId) {
-    update = { dog_id: dogId, status: "named" };
-  } else if (status === "needs_name") {
-    update = { status: "needs_name" };
-  } else {
-    return NextResponse.json(
-      { error: "dogId 또는 status:'needs_name' 중 하나가 필요합니다." },
-      { status: 400 }
+  const supabase = createServiceClient();
+
+  // 이름 지정
+  const ids: string[] = dogIds ?? (dogId ? [dogId] : []);
+  if (ids.length > 0) {
+    const { data, error } = await supabase
+      .from("photos")
+      .update({ dog_id: ids[0], status: "named" })
+      .eq("photo_id", photoId)
+      .select()
+      .single();
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // photo_dogs 갱신 (삭제 후 재삽입)
+    await supabase.from("photo_dogs").delete().eq("photo_id", photoId);
+    const { error: pdErr } = await supabase.from("photo_dogs").insert(
+      ids.map((did) => ({ photo_id: photoId, dog_id: did }))
     );
+    if (pdErr) return NextResponse.json({ error: pdErr.message }, { status: 500 });
+
+    return NextResponse.json({ photo: data });
   }
 
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("photos")
-    .update(update)
-    .eq("photo_id", photoId)
-    .select()
-    .single();
+  // needs_name
+  if (status === "needs_name") {
+    const { data, error } = await supabase
+      .from("photos")
+      .update({ status: "needs_name" })
+      .eq("photo_id", photoId)
+      .select()
+      .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ photo: data });
+  }
 
-  return NextResponse.json({ photo: data });
+  return NextResponse.json(
+    { error: "dogIds 또는 status:'needs_name' 중 하나가 필요합니다." },
+    { status: 400 }
+  );
 }
