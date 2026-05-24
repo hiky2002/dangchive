@@ -216,7 +216,6 @@ export default function UploadPage() {
         type="file"
         accept="image/*"
         multiple
-        capture="environment"
         className="hidden"
         onChange={handleFileChange}
         disabled={isCompressing || isUploading || isDone}
