@@ -296,7 +296,7 @@ function BatchDetailModal({
         </div>
 
         {/* 사진 슬라이더 */}
-        <div className="flex-1 min-h-0">
+        <div className="w-full h-64 shrink-0">
           <PhotoSwiper photos={batch.photos} />
         </div>
 
@@ -375,25 +375,24 @@ function PhotoSwiper({ photos }: { photos: Photo[] }) {
   }
 
   return (
-    <div className="relative w-full h-full flex flex-col">
+    <div className="relative w-full h-full">
 
       {/* 슬라이드 트랙 */}
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="flex flex-1 overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+        className="flex h-full overflow-x-auto snap-x snap-mandatory scrollbar-hide"
       >
         {photos.map((photo) => (
           <div
             key={photo.photo_id}
-            className="flex-shrink-0 snap-start flex items-center justify-center bg-black"
-            style={{ minWidth: "100%" }}
+            className="flex-shrink-0 w-full h-full snap-start flex items-center justify-center bg-black"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={getPhotoUrl(photo.storage_path)}
               alt={photo.file_name}
-              className="w-full h-full object-contain"
+              className="max-w-full max-h-full object-contain"
               loading="lazy"
             />
           </div>
