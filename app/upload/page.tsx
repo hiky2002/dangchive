@@ -264,7 +264,7 @@ export default function UploadPage() {
           )}
           {isDone ? (
             <button
-              onClick={() => router.push("/sort")}
+              onClick={() => router.push(`/sort?batch_id=${batchId}`)}
               className="w-full bg-green-500 text-white font-semibold py-4 rounded-2xl
                          active:scale-95 transition"
             >
