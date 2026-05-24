@@ -37,6 +37,7 @@ export default function UploadPage() {
   const previewUrlsRef  = useRef<string[]>([]);
 
   const nickname = "봉사자";
+  const [batchId, setBatchId] = useState<string | null>(null);
   const [items,        setItems]        = useState<FileItem[]>([]);
   const [phase,        setPhase]        = useState<Phase>("idle");
   const [compressProg, setCompressProg] = useState({ done: 0, total: 0 });
@@ -105,7 +106,7 @@ export default function UploadPage() {
     setUploadProg({ done: 0, total: ready.length });
     setError(null);
 
-    let batchId: string | null = null;
+    let localBatchId: string | null = null;
     let failCount = 0;
 
     for (let i = 0; i < ready.length; i++) {
@@ -114,13 +115,13 @@ export default function UploadPage() {
       fd.append("file",        item.compressed!);
       fd.append("file_name",   item.original.name);
       fd.append("upload_user", nickname.trim());
-      if (batchId) fd.append("batch_id", batchId);
+      if (localBatchId) fd.append("batch_id", localBatchId);
 
       try {
         const res = await fetch("/api/upload", { method: "POST", body: fd });
         if (!res.ok) throw new Error();
         const data = await res.json();
-        if (!batchId) batchId = data.batch_id;
+        if (!localBatchId) { localBatchId = data.batch_id; setBatchId(data.batch_id); }
 
         setItems((prev) =>
           prev.map((p) => (p.id === item.id ? { ...p, uploadState: "done" } : p))
