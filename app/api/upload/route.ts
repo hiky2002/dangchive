@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from("photos")
-    .select("*, dog:dogs(dog_id, dog_name, drive_folder_id, created_at), batch:batches(batch_id, upload_user, status), photo_dogs(dog_id, dog:dogs(dog_id, dog_name, drive_folder_id, created_at))")
+    .select("*, dog:dogs(dog_id, dog_name, drive_folder_id, created_at), batch:batches(batch_id, upload_user, status)")
     .eq("status", status)
     .order("created_at", { ascending: true });
 
@@ -24,15 +24,27 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // photo_dogs → dogs[] 변환 (없으면 기존 dog FK로 폴백)
+  const photoIds = (data ?? []).map((p: any) => p.photo_id as string);
+
+  // photo_dogs 별도 조회 — 테이블이 없으면 조용히 건너뜀
+  let pdMap: Record<string, any[]> = {};
+  if (photoIds.length > 0) {
+    const { data: pdData } = await supabase
+      .from("photo_dogs")
+      .select("photo_id, dog_id, dog:dogs(dog_id, dog_name, drive_folder_id, created_at)")
+      .in("photo_id", photoIds);
+
+    for (const row of pdData ?? []) {
+      if (!pdMap[row.photo_id]) pdMap[row.photo_id] = [];
+      if (row.dog) pdMap[row.photo_id].push(row.dog);
+    }
+  }
+
   const photos = (data ?? []).map((p: any) => {
-    const dogsFromJoin: typeof p.dog[] = (p.photo_dogs ?? [])
-      .map((pd: any) => pd.dog)
-      .filter(Boolean);
+    const dogsFromJoin = pdMap[p.photo_id] ?? [];
     return {
       ...p,
       dogs: dogsFromJoin.length > 0 ? dogsFromJoin : (p.dog ? [p.dog] : []),
-      photo_dogs: undefined,
     };
   });
 

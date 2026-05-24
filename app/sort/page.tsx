@@ -58,6 +58,10 @@ function SortInner() {
           fetch(`/api/upload?${qs("named")}`),
           fetch("/api/dogs"),
         ]);
+        if (!r1.ok || !r2.ok) {
+          const errBody = await (!r1.ok ? r1 : r2).json().catch(() => ({}));
+          throw new Error(errBody.error ?? "사진 조회 API 오류");
+        }
         const [d1, d2, d3] = await Promise.all([r1.json(), r2.json(), r3.json()]);
         setPhotos([...(d1.photos ?? []), ...(d2.photos ?? [])]);
         setDogs(d3.dogs ?? []);
