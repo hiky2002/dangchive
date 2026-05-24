@@ -28,7 +28,6 @@ const COMPRESS_OPTIONS = {
   maxSizeMB: 1.5,
   useWebWorker: true,
 } as const;
-const SESSION_KEY = "dangchive_nickname";
 
 // ─── 메인 페이지 ──────────────────────────────────────────────
 export default function UploadPage() {
@@ -37,18 +36,13 @@ export default function UploadPage() {
   const inputRef        = useRef<HTMLInputElement>(null);
   const previewUrlsRef  = useRef<string[]>([]);
 
-  const [nickname,     setNickname]     = useState("");
+  const nickname = "봉사자";
   const [items,        setItems]        = useState<FileItem[]>([]);
   const [phase,        setPhase]        = useState<Phase>("idle");
   const [compressProg, setCompressProg] = useState({ done: 0, total: 0 });
   const [uploadProg,   setUploadProg]   = useState({ done: 0, total: 0 });
   const [error,        setError]        = useState<string | null>(null);
 
-  // 세션 스토리지에서 닉네임 복원
-  useEffect(() => {
-    const saved = sessionStorage.getItem(SESSION_KEY);
-    if (saved) setNickname(saved);
-  }, []);
 
   // 언마운트 시 ObjectURL 해제
   useEffect(() => {
@@ -57,11 +51,6 @@ export default function UploadPage() {
     };
   }, []);
 
-  // ── 닉네임 세션 저장
-  function handleNickname(value: string) {
-    setNickname(value);
-    sessionStorage.setItem(SESSION_KEY, value);
-  }
 
   // ── 파일 선택 → 순차 압축
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -108,10 +97,6 @@ export default function UploadPage() {
 
   // ── 올리기: 첫 번째 파일로 배치 생성 → 이후 batch_id 재사용
   async function handleUpload() {
-    if (!nickname.trim()) {
-      setError("닉네임을 먼저 입력해 주세요.");
-      return;
-    }
 
     const ready = items.filter((it) => it.compressState === "done" && it.compressed);
     if (ready.length === 0) return;
@@ -178,23 +163,6 @@ export default function UploadPage() {
         </h1>
       </div>
 
-      {/* 닉네임 */}
-      <div className="mb-5">
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          닉네임 <span className="text-red-400">*</span>
-        </label>
-        <input
-          type="text"
-          value={nickname}
-          onChange={(e) => handleNickname(e.target.value)}
-          placeholder="예: 희진"
-          maxLength={20}
-          disabled={isUploading || isDone}
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-orange-400
-                     disabled:bg-gray-50 disabled:text-gray-400"
-        />
-      </div>
 
       {/* 사진 선택 드롭존 (idle 상태에서만) */}
       {phase === "idle" && (
