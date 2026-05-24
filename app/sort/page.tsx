@@ -31,7 +31,9 @@ function PageSpinner({ text = "불러오는 중..." }: { text?: string }) {
 
 function SortInner() {
   const params  = useSearchParams();
-  const batchId = params.get("batch_id") ?? null;
+  const batchId =
+    params.get("batch_id") ??
+    (typeof window !== "undefined" ? sessionStorage.getItem(SESSION_BATCH_KEY) : null);
 
   const [photos,        setPhotos]        = useState<Photo[]>([]);
   const [dogs,          setDogs]          = useState<Dog[]>([]);
