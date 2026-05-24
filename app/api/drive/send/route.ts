@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   // 사진 + 아이 정보 일괄 조회 (photo_dogs 다대다)
   const { data: photos, error: fetchErr } = await supabase
     .from("photos")
-    .select("*, dog:dogs(dog_id, dog_name, drive_folder_id), photo_dogs(dog_id, dog:dogs(dog_id, dog_name, drive_folder_id))")
+    .select("*, photo_dogs(dog_id, dog:dogs(dog_id, dog_name, drive_folder_id))")
     .in("photo_id", photoIds);
 
   if (fetchErr || !photos) {
@@ -48,16 +48,9 @@ export async function POST(req: NextRequest) {
   type DogInfo = { dog_id: string; dog_name: string; drive_folder_id: string | null };
 
   for (const photo of photos) {
-    // photo_dogs 우선, 없으면 단일 dog FK로 폴백
-    const dogsFromJoin: DogInfo[] = ((photo.photo_dogs ?? []) as any[])
+    const dogs: DogInfo[] = ((photo.photo_dogs ?? []) as any[])
       .map((pd: any) => pd.dog)
       .filter(Boolean);
-    const dogs: DogInfo[] =
-      dogsFromJoin.length > 0
-        ? dogsFromJoin
-        : photo.dog
-          ? [photo.dog as DogInfo]
-          : [];
 
     console.log(`\n[drive/send] --- photo_id=${photo.photo_id} ---`);
     console.log(`  dogs: ${dogs.map(d => d.dog_name).join(", ") || "❌ 미지정"}`);
