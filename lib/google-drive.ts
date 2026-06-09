@@ -110,6 +110,16 @@ export async function listRootFolders(): Promise<{ id: string; name: string }[]>
   return all;
 }
 
+export async function renameDriveFolder(folderId: string, newName: string): Promise<void> {
+  const drive = createDriveClient();
+  await drive.files.update({
+    fileId: folderId,
+    requestBody: { name: newName },
+    supportsAllDrives: true,
+  });
+  console.log(`[renameDriveFolder] "${folderId}" → "${newName}"`);
+}
+
 export async function countFilesInFolder(folderId: string): Promise<number> {
   const drive = createDriveClient();
   const res   = await drive.files.list({

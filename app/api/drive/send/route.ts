@@ -56,9 +56,8 @@ export async function POST(req: NextRequest) {
   console.log(`[drive/send] 아이 매핑: ${dogsByPhoto.size}장에 아이 지정됨`);
 
   console.log("[drive/send] 환경변수 체크:", {
-    clientId:      process.env.GOOGLE_CLIENT_ID ? "✅" : "❌ 없음",
-    clientSecret:  process.env.GOOGLE_CLIENT_SECRET ? "✅" : "❌ 없음",
-    refreshToken:  process.env.GOOGLE_REFRESH_TOKEN ? "✅" : "❌ 없음",
+    serviceEmail:  process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ? "✅" : "❌ 없음",
+    privateKey:    process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ? "✅" : "❌ 없음",
     rootFolder:    process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID ?? "❌ 없음",
     sharedDriveId: process.env.GOOGLE_SHARED_DRIVE_ID ?? "❌ 없음",
   });

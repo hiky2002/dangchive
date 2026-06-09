@@ -23,9 +23,9 @@ type FileItem = {
 // ─── 상수 ────────────────────────────────────────────────────
 const MAX_FILES = 50;
 const COMPRESS_OPTIONS = {
-  maxWidthOrHeight: 2048,
-  initialQuality: 0.8,
-  maxSizeMB: 1.5,
+  maxWidthOrHeight: 1600,
+  initialQuality: 0.75,
+  maxSizeMB: 0.8,
   useWebWorker: true,
 } as const;
 

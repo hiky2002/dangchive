@@ -221,33 +221,32 @@ function BatchDetailModal({
   onDone: () => void;
   onAddDog: (name: string) => Promise<Dog | null>;
 }) {
-  const [pickedDog,  setPickedDog]  = useState<Dog | null>(null);
+  const [pickedDogs, setPickedDogs] = useState<Dog[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sending,    setSending]    = useState(false);
   const [sendError,  setSendError]  = useState<string | null>(null);
 
-  // 드로어 확정 → 미리보기 상태 저장 (첫 번째 아이 사용)
+  // 드로어 확정 → 선택된 모든 아이 저장
   function handleDrawerAssign(dogIds: string[], dogsArr: Dog[]) {
-    const first = dogsArr[0];
-    if (!first) return;
-    setPickedDog(first);
+    if (dogsArr.length === 0) return;
+    setPickedDogs(dogsArr);
     setDrawerOpen(false);
   }
 
   // 확정 + 드라이브 전송
   async function handleConfirm() {
-    if (!pickedDog || sending) return;
+    if (pickedDogs.length === 0 || sending) return;
     setSending(true);
     setSendError(null);
 
     try {
-      // 1. 모든 사진에 dog_id 일괄 적용
+      // 1. 모든 사진에 dogIds 일괄 적용
       await Promise.all(
         batch.photos.map((photo) =>
           fetch("/api/upload", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ photoId: photo.photo_id, dogId: pickedDog.dog_id }),
+            body: JSON.stringify({ photoId: photo.photo_id, dogIds: pickedDogs.map(d => d.dog_id) }),
           })
         )
       );
@@ -308,12 +307,14 @@ function BatchDetailModal({
           )}
 
           {/* 선택된 아이 미리보기 */}
-          {pickedDog && (
+          {pickedDogs.length > 0 && (
             <div className="flex items-center gap-3 mb-3 px-4 py-3 bg-white/10 rounded-2xl">
               <span className="text-xl">🐾</span>
-              <span className="text-white font-semibold">{pickedDog.dog_name}</span>
+              <span className="text-white font-semibold">
+                {pickedDogs.map(d => d.dog_name).join(", ")}
+              </span>
               <button
-                onClick={() => setPickedDog(null)}
+                onClick={() => setPickedDogs([])}
                 className="ml-auto text-xs text-gray-400 hover:text-white transition"
               >
                 변경
@@ -321,7 +322,7 @@ function BatchDetailModal({
             </div>
           )}
 
-          {pickedDog ? (
+          {pickedDogs.length > 0 ? (
             /* 확정 버튼 */
             <button
               onClick={handleConfirm}
@@ -331,7 +332,7 @@ function BatchDetailModal({
             >
               {sending
                 ? "드라이브에 전송 중..."
-                : `"${pickedDog.dog_name}"로 확정 + 드라이브 전송`}
+                : `${pickedDogs.map(d => `"${d.dog_name}"`).join(", ")}로 확정 + 드라이브 전송`}
             </button>
           ) : (
             /* 이름 지정 버튼 */
