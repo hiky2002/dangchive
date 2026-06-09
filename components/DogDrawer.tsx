@@ -74,6 +74,19 @@ export function DogDrawer({
     }
   }
 
+  // 요청 취소 — DB에서도 삭제
+  async function cancelRequest() {
+    stopPolling();
+    const rid = pendingRequestId;
+    setPendingName(null);
+    setPendingRequestId(null);
+    if (rid) {
+      try {
+        await fetch(`/api/dog-requests/${rid}`, { method: "DELETE" });
+      } catch { /* 무시 */ }
+    }
+  }
+
   const filtered = dogs.filter((d) =>
     d.dog_name.toLowerCase().includes(search.toLowerCase())
   );
@@ -292,7 +305,7 @@ export function DogDrawer({
                   <p className="text-xs text-amber-500 mt-0.5">관리자가 승인하면 자동으로 선택돼요</p>
                 </div>
                 <button
-                  onClick={() => { stopPolling(); setPendingName(null); setPendingRequestId(null); }}
+                  onClick={cancelRequest}
                   className="text-xs text-gray-400 hover:text-gray-600 shrink-0"
                 >
                   취소
@@ -300,7 +313,7 @@ export function DogDrawer({
               </div>
               {onSkip && (
                 <button
-                  onClick={() => { stopPolling(); setPendingName(null); setPendingRequestId(null); onSkip(); }}
+                  onClick={async () => { await cancelRequest(); onSkip(); }}
                   className="w-full text-sm text-amber-700 font-medium bg-amber-100 hover:bg-amber-200 py-2 rounded-xl transition active:scale-95"
                 >
                   지금은 넘기고 나중에 이름 지정하기 →

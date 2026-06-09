@@ -91,7 +91,7 @@ export default function DogsPage() {
       )}
 
       {/* 관리자: 대기 중인 요청 */}
-      {isAdmin && <PendingRequests adminKey={adminKey!} onApproved={load} />}
+      {isAdmin && <PendingRequests adminKey={adminKey!} dogs={dogs} onApproved={load} />}
 
       {/* 관리자: 새 아이 추가 */}
       {isAdmin && <AdminAddDog adminKey={adminKey!} onAdded={load} />}
@@ -193,7 +193,33 @@ function AdminLoginModal({ onClose, onLogin }: { onClose: () => void; onLogin: (
 // ─────────────────────────────────────────────────────────────
 // PendingRequests
 // ─────────────────────────────────────────────────────────────
-function PendingRequests({ adminKey, onApproved }: { adminKey: string; onApproved: () => void }) {
+// 유사 이름 찾기: 언더스코어 뒤 베이스 이름이나 전체 이름이 겹치는 경우
+function findSimilarDogs(requestedName: string, dogs: Dog[]): Dog[] {
+  const normalize = (s: string) => s.trim().toLowerCase();
+  const reqNorm   = normalize(requestedName);
+
+  // 언더스코어 기준 마지막 조각 (예: "22_099_루루" → "루루")
+  const basePart  = (s: string) => {
+    const parts = normalize(s).split("_");
+    return parts[parts.length - 1];
+  };
+  const reqBase = basePart(requestedName);
+
+  return dogs.filter((d) => {
+    const dNorm = normalize(d.dog_name);
+    const dBase = basePart(d.dog_name);
+    // 완전히 같은 이름은 제외 (동일 요청)
+    if (dNorm === reqNorm) return false;
+    // 베이스 파트가 같거나, 한쪽이 다른쪽을 포함
+    return (
+      (reqBase.length > 0 && dBase === reqBase) ||
+      dNorm.includes(reqNorm) ||
+      reqNorm.includes(dNorm)
+    );
+  });
+}
+
+function PendingRequests({ adminKey, dogs, onApproved }: { adminKey: string; dogs: Dog[]; onApproved: () => void }) {
   const [requests, setRequests] = useState<DogRequest[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [acting,   setActing]   = useState<string | null>(null);
@@ -240,32 +266,49 @@ function PendingRequests({ adminKey, onApproved }: { adminKey: string; onApprove
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {requests.map((req) => (
-            <div key={req.request_id} className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
-              <p className="text-sm font-medium text-gray-800 mb-1">
-                {req.type === "rename"
-                  ? `"${req.current_name}" → "${req.requested_name}" 이름 변경`
-                  : `"${req.requested_name}" 새 아이 추가`}
-              </p>
-              <p className="text-xs text-gray-400 mb-3">요청자: {req.requester}</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleAction(req.request_id, "approve")}
-                  disabled={acting === req.request_id}
-                  className="flex-1 bg-green-500 text-white text-xs font-semibold py-2 rounded-xl disabled:opacity-40 active:scale-95 transition"
-                >
-                  {acting === req.request_id ? "처리 중..." : "✓ 승인"}
-                </button>
-                <button
-                  onClick={() => handleAction(req.request_id, "reject")}
-                  disabled={acting === req.request_id}
-                  className="flex-1 bg-gray-200 text-gray-600 text-xs font-semibold py-2 rounded-xl disabled:opacity-40 active:scale-95 transition"
-                >
-                  ✕ 거절
-                </button>
+          {requests.map((req) => {
+            const similar = req.type === "add" ? findSimilarDogs(req.requested_name, dogs) : [];
+            return (
+              <div key={req.request_id} className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+                <p className="text-sm font-medium text-gray-800 mb-1">
+                  {req.type === "rename"
+                    ? `"${req.current_name}" → "${req.requested_name}" 이름 변경`
+                    : `"${req.requested_name}" 새 아이 추가`}
+                </p>
+                <p className="text-xs text-gray-400 mb-2">요청자: {req.requester}</p>
+
+                {/* 유사 이름 경고 */}
+                {similar.length > 0 && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 mb-3">
+                    <p className="text-xs font-semibold text-orange-700 mb-1">⚠️ 비슷한 이름이 이미 있어요!</p>
+                    {similar.map((d) => (
+                      <p key={d.dog_id} className="text-xs text-orange-600">
+                        · {d.dog_name}
+                      </p>
+                    ))}
+                    <p className="text-xs text-orange-500 mt-1">중복 여부를 한 번 더 확인해 주세요.</p>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleAction(req.request_id, "approve")}
+                    disabled={acting === req.request_id}
+                    className="flex-1 bg-green-500 text-white text-xs font-semibold py-2 rounded-xl disabled:opacity-40 active:scale-95 transition"
+                  >
+                    {acting === req.request_id ? "처리 중..." : "✓ 승인"}
+                  </button>
+                  <button
+                    onClick={() => handleAction(req.request_id, "reject")}
+                    disabled={acting === req.request_id}
+                    className="flex-1 bg-gray-200 text-gray-600 text-xs font-semibold py-2 rounded-xl disabled:opacity-40 active:scale-95 transition"
+                  >
+                    ✕ 거절
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

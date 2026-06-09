@@ -24,6 +24,22 @@ export async function GET(_req: NextRequest, { params }: Params) {
   return NextResponse.json({ request: data });
 }
 
+// DELETE /api/dog-requests/[request_id] — 봉사자 본인이 취소 (pending 상태만)
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const { request_id } = await params;
+  const supabase = createServiceClient();
+
+  const { error } = await supabase
+    .from("dog_requests")
+    .delete()
+    .eq("request_id", request_id)
+    .eq("status", "pending"); // pending 상태인 것만 삭제
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}
+
 // PATCH /api/dog-requests/[request_id] — { action: 'approve' | 'reject' }
 export async function PATCH(req: NextRequest, { params }: Params) {
   if (!isAdmin(req)) return NextResponse.json({ error: "권한 없음" }, { status: 403 });
