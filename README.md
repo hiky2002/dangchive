@@ -38,6 +38,8 @@ GOOGLE_OAUTH_REDIRECT_URI=http://localhost:4000
 
 # Google Drive
 GOOGLE_DRIVE_ROOT_FOLDER_ID=your-root-folder-id
+# 공유 드라이브(Shared Drive) 사용 시 드라이브 ID 추가 (일반 드라이브면 생략)
+GOOGLE_SHARED_DRIVE_ID=your-shared-drive-id
 ```
 
 ### Google Refresh Token 발급 방법

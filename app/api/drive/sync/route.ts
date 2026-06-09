@@ -18,6 +18,7 @@ export async function POST() {
     const folderIdSet = new Set(existing.map((d) => d.drive_folder_id).filter(Boolean));
 
     const driveFolders = await listRootFolders();
+    console.log(`[sync] 드라이브 폴더 ${driveFolders.length}개, DB 아이 ${existing.length}마리`);
 
     const toInsert: { dog_name: string; drive_folder_id: string }[] = [];
     const toUpdate: { dog_id: string; drive_folder_id: string }[]   = [];
@@ -56,7 +57,10 @@ export async function POST() {
 
     return NextResponse.json({ added: inserted.length, updated, dogs: inserted });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message    = err instanceof Error ? err.message : String(err);
+    const httpStatus = (err as any)?.response?.status;
+    const apiError   = (err as any)?.response?.data?.error;
+    console.error("[sync] 오류:", message, httpStatus ? `HTTP ${httpStatus}` : "", apiError ? JSON.stringify(apiError) : "");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

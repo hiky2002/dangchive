@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { createDriveClient, ensureDogFolder, countFilesInFolder } from "@/lib/google-drive";
+import { createDriveClient, ensureDogFolder, countFilesInFolder, sharedDriveParams } from "@/lib/google-drive";
 import { Readable } from "stream";
 
 // POST /api/drive/send — { photo_ids: string[] }
@@ -30,11 +30,12 @@ export async function POST(req: NextRequest) {
 
   console.log(`[drive/send] DB 조회 성공: ${photos.length}장`);
 
-  // JWT 인증 환경변수 확인 (키 전체는 출력하지 않음)
   console.log("[drive/send] 환경변수 체크:", {
-    email:     process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "❌ 없음",
-    keyLength: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.length ?? 0,
-    rootFolder: process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID ?? "❌ 없음",
+    clientId:      process.env.GOOGLE_CLIENT_ID ? "✅" : "❌ 없음",
+    clientSecret:  process.env.GOOGLE_CLIENT_SECRET ? "✅" : "❌ 없음",
+    refreshToken:  process.env.GOOGLE_REFRESH_TOKEN ? "✅" : "❌ 없음",
+    rootFolder:    process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID ?? "❌ 없음",
+    sharedDriveId: process.env.GOOGLE_SHARED_DRIVE_ID ?? "❌ 없음",
   });
 
   const drive = createDriveClient();
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest) {
           requestBody: { name: savedName, parents: [folderId] },
           media:       { mimeType: "image/jpeg", body: stream },
           fields:      "id, webViewLink",
+          supportsAllDrives: true,
         });
         if (!firstDriveUrl) firstDriveUrl = driveRes.data.webViewLink ?? null;
         console.log(`  [3] 업로드 완료 → ${driveRes.data.id}`);
