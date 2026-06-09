@@ -72,23 +72,23 @@ export function AdminHomeSection() {
         {pendingCount > 0 && (
           <Link
             href="/dogs"
-            className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3 text-sm text-orange-800 hover:bg-orange-100 transition active:scale-95"
+            className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3 text-sm active:scale-[0.98] transition"
           >
-            <span className="text-lg">🔔</span>
-            <span className="flex-1 font-medium">승인 요청 {pendingCount}건 대기 중</span>
-            <span className="text-orange-500 font-bold">→</span>
+            <div className="w-8 h-8 rounded-lg bg-[#FFF0E6] flex items-center justify-center text-base shrink-0">🔔</div>
+            <span className="flex-1 font-semibold text-[#191F28]">승인 요청 {pendingCount}건 대기 중</span>
+            <span className="text-[#C2C8D0] font-bold">›</span>
           </Link>
         )}
 
         {/* 관리자 상태 표시 */}
-        <div className="flex items-center justify-between bg-orange-50 border border-orange-100 rounded-2xl px-4 py-3">
-          <div className="flex items-center gap-2 text-sm text-orange-700">
+        <div className="flex items-center justify-between bg-white rounded-2xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-[#191F28]">
             <span>🔑</span>
-            <span className="font-medium">관리자 모드</span>
+            <span className="font-semibold">관리자 모드</span>
           </div>
           <button
             onClick={handleLogout}
-            className="text-xs text-orange-400 hover:text-orange-600 transition"
+            className="text-xs text-[#8B95A1] hover:text-[#191F28] transition"
           >
             로그아웃
           </button>
@@ -100,8 +100,8 @@ export function AdminHomeSection() {
   // ── 로그인 폼
   if (showLogin) {
     return (
-      <div className="bg-white border border-gray-200 rounded-2xl px-4 py-4 flex flex-col gap-3">
-        <p className="text-sm font-semibold text-gray-700">관리자 로그인</p>
+      <div className="bg-white rounded-2xl px-4 py-4 flex flex-col gap-3">
+        <p className="text-sm font-semibold text-[#191F28]">관리자 로그인</p>
         <div className="flex gap-2">
           <input
             type="password"
@@ -109,13 +109,13 @@ export function AdminHomeSection() {
             onChange={(e) => { setPassword(e.target.value); setLoginError(false); }}
             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
             placeholder="비밀번호 입력"
-            className={`flex-1 border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400
+            className={`flex-1 border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#191F28]
               ${loginError ? "border-red-300 bg-red-50" : "border-gray-200"}`}
           />
           <button
             onClick={handleLogin}
             disabled={!password.trim() || checking}
-            className="px-4 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl disabled:opacity-40 active:scale-95 transition"
+            className="px-4 py-2.5 bg-[#191F28] text-white text-sm font-medium rounded-xl disabled:opacity-40 active:scale-95 transition"
           >
             {checking ? "..." : "확인"}
           </button>
@@ -125,7 +125,7 @@ export function AdminHomeSection() {
         )}
         <button
           onClick={() => { setShowLogin(false); setPassword(""); setLoginError(false); }}
-          className="text-xs text-gray-400 hover:text-gray-600 text-center"
+          className="text-xs text-[#8B95A1] hover:text-[#191F28] text-center transition"
         >
           취소
         </button>
@@ -137,7 +137,7 @@ export function AdminHomeSection() {
   return (
     <button
       onClick={() => setShowLogin(true)}
-      className="w-full text-xs text-gray-400 hover:text-orange-500 text-center py-2 transition"
+      className="w-full text-xs text-[#C2C8D0] hover:text-[#8B95A1] text-center py-2 transition"
     >
       관리자 로그인
     </button>

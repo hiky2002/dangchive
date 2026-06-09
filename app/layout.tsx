@@ -23,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body className="antialiased bg-gray-50 min-h-screen">
+      <body className="antialiased bg-[#F5F5F5] min-h-screen">
         <AuthGate>
           <KakaoInAppBanner />
           {/* pb-20: 하단 탭 네비게이션 높이(~64px) 만큼 여백 확보 */}

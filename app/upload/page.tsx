@@ -204,8 +204,8 @@ export default function UploadPage() {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-full border-2 border-dashed border-gray-300 rounded-2xl
-                     py-12 text-center hover:border-orange-400 transition-colors"
+          className="w-full border-2 border-dashed border-gray-200 rounded-2xl bg-white
+                     py-12 text-center hover:border-[#191F28] transition-colors"
         >
           <p className="text-5xl mb-3">📷</p>
           <p className="font-medium text-gray-700">사진을 선택하거나 촬영하세요</p>
@@ -266,9 +266,9 @@ export default function UploadPage() {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="mt-4 mb-2 w-full text-sm text-orange-500 font-medium
-                     border border-orange-200 rounded-xl py-2
-                     hover:bg-orange-50 active:scale-95 transition"
+          className="mt-4 mb-2 w-full text-sm text-[#8B95A1] font-medium
+                     border border-gray-200 rounded-xl py-2 bg-white
+                     hover:bg-gray-50 active:scale-95 transition"
         >
           + 다시 선택
         </button>
@@ -294,7 +294,7 @@ export default function UploadPage() {
           {isDone ? (
             <button
               onClick={() => router.push(`/sort?batch_id=${batchId}`)}
-              className="w-full bg-green-500 text-white font-semibold py-4 rounded-2xl
+              className="w-full bg-[#191F28] text-white font-semibold py-4 rounded-2xl
                          active:scale-95 transition"
             >
               이름 정리하러 가기 →
@@ -303,7 +303,7 @@ export default function UploadPage() {
             <button
               onClick={handleUpload}
               disabled={phase !== "ready" || doneCount === 0 || !online}
-              className="w-full bg-orange-500 text-white font-semibold py-4 rounded-2xl
+              className="w-full bg-[#191F28] text-white font-semibold py-4 rounded-2xl
                          disabled:opacity-40 active:scale-95 transition"
             >
               {isUploading
@@ -368,8 +368,8 @@ function StatusBanner({
   children: React.ReactNode;
 }) {
   const cls = {
-    orange: "bg-orange-50 border-orange-200 text-orange-700",
-    green:  "bg-green-50  border-green-200  text-green-700",
+    orange: "bg-white border-gray-100 text-[#191F28]",
+    green:  "bg-white border-gray-100 text-[#191F28]",
   }[color as "orange" | "green"];
   return (
     <div className={`mt-4 rounded-2xl border p-4 ${cls}`}>{children}</div>
@@ -378,9 +378,9 @@ function StatusBanner({
 
 function ProgressBar({ pct }: { pct: number }) {
   return (
-    <div className="mt-2 h-1.5 rounded-full overflow-hidden bg-orange-200">
+    <div className="mt-2 h-1.5 rounded-full overflow-hidden bg-gray-200">
       <div
-        className="h-full rounded-full transition-all duration-300 bg-orange-400"
+        className="h-full rounded-full transition-all duration-300 bg-[#191F28]"
         style={{ width: `${Math.min(pct, 100)}%` }}
       />
     </div>

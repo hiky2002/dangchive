@@ -268,7 +268,7 @@ function SortInner() {
         </p>
         <Link
           href="/upload"
-          className="inline-block bg-orange-500 text-white font-semibold px-6 py-3 rounded-2xl text-sm active:scale-95 transition"
+          className="inline-block bg-[#191F28] text-white font-semibold px-6 py-3 rounded-2xl text-sm active:scale-95 transition"
         >
           📸 사진 올리러 가기
         </Link>
@@ -282,7 +282,7 @@ function SortInner() {
     <main className="max-w-md mx-auto pb-56">
 
       {/* 헤더 */}
-      <div className="flex items-center justify-between px-4 py-4 sticky top-0 bg-gray-50/95 backdrop-blur-sm border-b border-gray-100 z-10">
+      <div className="flex items-center justify-between px-4 py-4 sticky top-0 bg-[#F5F5F5]/95 backdrop-blur-sm border-b border-gray-100 z-10">
         <div className="flex items-center gap-2.5">
           <Link href="/" className="text-gray-400 hover:text-gray-700 text-xl leading-none">
             ←
@@ -297,7 +297,7 @@ function SortInner() {
         {photos.length > 0 && (
           <button
             onClick={allSelected ? clearSelect : selectAll}
-            className="text-sm text-orange-500 font-medium"
+            className="text-sm text-[#8B95A1] font-medium"
           >
             {allSelected ? "전체 해제" : "전체 선택"}
           </button>
@@ -313,11 +313,11 @@ function SortInner() {
       <FailedPhotoBanner />
 
       {selectedIds.size > 0 && (
-        <div className="mx-4 mt-3 px-4 py-2.5 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between">
-          <span className="text-sm font-medium text-blue-700">
+        <div className="mx-4 mt-3 px-4 py-2.5 bg-white rounded-xl flex items-center justify-between">
+          <span className="text-sm font-semibold text-[#191F28]">
             {selectedIds.size}장 선택됨
           </span>
-          <button onClick={clearSelect} className="text-xs text-blue-400 hover:text-blue-600">
+          <button onClick={clearSelect} className="text-xs text-[#8B95A1] hover:text-[#191F28]">
             해제
           </button>
         </div>
@@ -515,7 +515,7 @@ function PhotoCell({
   return (
     <div
       className={`relative aspect-square bg-gray-100 overflow-hidden cursor-pointer select-none
-        ${selected ? "ring-[3px] ring-inset ring-blue-500" : ""}`}
+        ${selected ? "ring-[3px] ring-inset ring-[#191F28]" : ""}`}
       onClick={handleClick}
       onMouseDown={startPress}
       onMouseUp={endPress}
@@ -533,8 +533,8 @@ function PhotoCell({
       />
 
       {selected && (
-        <div className="absolute inset-0 bg-blue-500/20">
-          <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-blue-500 shadow flex items-center justify-center">
+        <div className="absolute inset-0 bg-[#191F28]/20">
+          <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#191F28] shadow flex items-center justify-center">
             <svg
               className="w-3 h-3 text-white"
               fill="none"
@@ -599,7 +599,7 @@ function BottomBar({
           <button
             onClick={onSendToDrive}
             disabled={busy}
-            className="w-full bg-blue-500 text-white font-semibold py-3.5 rounded-2xl text-sm
+            className="w-full bg-[#191F28] text-white font-semibold py-3.5 rounded-2xl text-sm
                        disabled:opacity-40 active:scale-95 transition"
           >
             {actionLoading === "drive"
@@ -620,7 +620,7 @@ function BottomBar({
           <button
             onClick={onOpenDrawer}
             disabled={inactive}
-            className="flex-1 bg-orange-500 text-white font-semibold py-3.5 rounded-2xl text-sm
+            className="flex-1 bg-[#191F28] text-white font-semibold py-3.5 rounded-2xl text-sm
                        disabled:opacity-40 active:scale-95 transition"
           >
             이름 지정하기

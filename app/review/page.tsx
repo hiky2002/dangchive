@@ -94,13 +94,13 @@ function ReviewInner() {
     <main className="max-w-md mx-auto pb-8">
 
       {/* 헤더 */}
-      <div className="flex items-center gap-3 px-4 py-5 sticky top-0 bg-gray-50/95 backdrop-blur-sm z-10 border-b border-gray-100">
+      <div className="flex items-center gap-3 px-4 py-5 sticky top-0 bg-[#F5F5F5]/95 backdrop-blur-sm z-10 border-b border-gray-100">
         <Link href="/" className="text-gray-400 hover:text-gray-700 text-xl leading-none">
           ←
         </Link>
         <h1 className="text-base font-bold text-gray-900">이름 확인 필요</h1>
         {batches.length > 0 && (
-          <span className="ml-auto text-xs font-medium bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
+          <span className="ml-auto text-xs font-medium bg-[#F0F0F0] text-[#191F28] px-2 py-0.5 rounded-full">
             {batches.length}건
           </span>
         )}
