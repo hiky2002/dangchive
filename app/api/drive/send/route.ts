@@ -140,6 +140,9 @@ export async function POST(req: NextRequest) {
             .update({ status: "sent", saved_name: finalName, drive_url: firstDriveUrl })
             .eq("photo_id", photo.photo_id);
 
+          // ── 5. Supabase Storage 원본 삭제 (드라이브 전송 완료 후 용량 확보)
+          await supabase.storage.from("dangchive").remove([photo.storage_path]);
+
           return { ok: true, photo_id: photo.photo_id, saved_name: finalName, drive_url: firstDriveUrl ?? undefined };
 
         } catch (err) {
