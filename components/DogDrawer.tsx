@@ -217,7 +217,7 @@ export function DogDrawer({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="이름으로 검색 (예: 콩이)"
             className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm
-                       focus:outline-none focus:ring-2 focus:ring-orange-400"
+                       focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
           />
         </div>
 
@@ -228,10 +228,10 @@ export function DogDrawer({
               <span
                 key={d.dog_id}
                 onClick={() => toggleDog(d.dog_id)}
-                className="inline-flex items-center gap-1 bg-orange-100 text-orange-700 text-xs font-medium px-2.5 py-1 rounded-full cursor-pointer hover:bg-orange-200"
+                className="inline-flex items-center gap-1 bg-[#EBF3FF] text-[#3182F6] text-xs font-medium px-2.5 py-1 rounded-full cursor-pointer hover:bg-blue-100"
               >
                 🐾 {d.dog_name}
-                <span className="text-orange-400 font-bold">✕</span>
+                <span className="text-[#3182F6] font-bold">✕</span>
               </span>
             ))}
           </div>
@@ -253,16 +253,16 @@ export function DogDrawer({
                     onClick={() => toggleDog(dog.dog_id)}
                     className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl text-left transition
                       ${picked
-                        ? "bg-orange-50 border-2 border-orange-400"
+                        ? "bg-[#EBF3FF] border-2 border-[#3182F6]"
                         : "border-2 border-transparent hover:bg-gray-50"
                       }`}
                   >
                     <span className="text-xl">🐾</span>
-                    <span className={`font-medium ${picked ? "text-orange-700" : "text-gray-800"}`}>
+                    <span className={`font-medium ${picked ? "text-[#3182F6]" : "text-gray-800"}`}>
                       {dog.dog_name}
                     </span>
                     <div className={`ml-auto w-5 h-5 rounded flex items-center justify-center border-2 transition
-                      ${picked ? "bg-orange-500 border-orange-500" : "border-gray-300"}`}>
+                      ${picked ? "bg-[#3182F6] border-[#3182F6]" : "border-gray-300"}`}>
                       {picked && (
                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -333,7 +333,7 @@ export function DogDrawer({
                   placeholder="이름 입력 (예: 두부)"
                   maxLength={20}
                   className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm
-                             focus:outline-none focus:ring-2 focus:ring-orange-400"
+                             focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
                 />
                 <button
                   onClick={handleRequestNewDog}
@@ -355,7 +355,7 @@ export function DogDrawer({
           <button
             onClick={handleConfirm}
             disabled={pickedIds.size === 0 || busy}
-            className="w-full bg-orange-500 text-white font-semibold py-4 rounded-2xl
+            className="w-full bg-[#3182F6] text-white font-semibold py-4 rounded-2xl
                        disabled:opacity-40 active:scale-95 transition"
           >
             {busy ? "지정 중..." : pickedLabel}

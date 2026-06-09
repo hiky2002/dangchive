@@ -329,7 +329,7 @@ function ThumbnailCell({ item }: { item: FileItem }) {
       ) : (
         <div className="w-full h-full flex items-center justify-center">
           {item.compressState === "compressing" ? (
-            <div className="w-5 h-5 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-[#3182F6] border-t-transparent rounded-full animate-spin" />
           ) : (
             <span className="text-2xl text-gray-300">🖼</span>
           )}

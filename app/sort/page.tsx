@@ -787,10 +787,10 @@ function BottomBar({
           <button
             onClick={onOpenDrawer}
             disabled={inactive}
-            className="flex-1 bg-[#3182F6] text-white font-semibold py-3.5 rounded-2xl text-sm
+            className="flex-1 bg-[#191F28] text-white font-semibold py-3.5 rounded-2xl text-sm
                        disabled:opacity-40 active:scale-95 transition"
           >
-            이름 지정하기
+            🐾 이름 지정하기
           </button>
         </div>
 
