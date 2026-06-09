@@ -50,15 +50,22 @@ export async function ensureDogFolder(dogName: string): Promise<string> {
 export async function listRootFolders(): Promise<{ id: string; name: string }[]> {
   const drive        = createDriveClient();
   const rootFolderId = getRootFolderId();
+  const all: { id: string; name: string }[] = [];
+  let pageToken: string | undefined;
 
-  const res = await drive.files.list({
-    q: `'${rootFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-    fields: "files(id, name)",
-    pageSize: 1000,
-    orderBy: "name",
-  });
+  do {
+    const res = await drive.files.list({
+      q: `'${rootFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+      fields: "nextPageToken, files(id, name)",
+      pageSize: 1000,
+      orderBy: "name",
+      ...(pageToken ? { pageToken } : {}),
+    });
+    all.push(...((res.data.files ?? []) as { id: string; name: string }[]));
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
 
-  return (res.data.files ?? []) as { id: string; name: string }[];
+  return all;
 }
 
 export async function countFilesInFolder(folderId: string): Promise<number> {

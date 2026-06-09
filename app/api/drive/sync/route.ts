@@ -2,12 +2,6 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { listRootFolders } from "@/lib/google-drive";
 
-// "26_0075 순대" → "순대" (공백 기준 마지막 단어)
-function parseDogName(folderName: string): string {
-  const parts = folderName.trim().split(" ");
-  return parts[parts.length - 1];
-}
-
 // POST /api/drive/sync — 드라이브 폴더 → dogs 테이블 동기화
 export async function POST() {
   try {
@@ -31,13 +25,12 @@ export async function POST() {
     for (const folder of driveFolders) {
       if (folderIdSet.has(folder.id)) continue;
 
-      const dogName = parseDogName(folder.name);
-      const existingId = nameToId.get(dogName);
+      const existingId = nameToId.get(folder.name);
 
       if (existingId) {
         toUpdate.push({ dog_id: existingId, drive_folder_id: folder.id });
       } else {
-        toInsert.push({ dog_name: dogName, drive_folder_id: folder.id });
+        toInsert.push({ dog_name: folder.name, drive_folder_id: folder.id });
       }
     }
 
