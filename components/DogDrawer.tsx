@@ -55,7 +55,7 @@ export function DogDrawer({
     if (found) {
       stopPolling();
       setPendingName(null);
-      setPickedIds((prev) => new Set([...prev, found.dog_id]));
+      setPickedIds((prev) => new Set(Array.from(prev).concat(found.dog_id)));
       if (onDogApproved) onDogApproved(found);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,7 +112,7 @@ export function DogDrawer({
           if (found) {
             stopPolling();
             setPendingName(null);
-            setPickedIds((prev) => new Set([...prev, found.dog_id]));
+            setPickedIds((prev) => new Set(Array.from(prev).concat(found.dog_id)));
             if (onDogApproved) onDogApproved(found);
           }
         } catch { /* 무시 */ }
