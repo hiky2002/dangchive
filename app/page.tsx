@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PendingRequestsBadge } from "@/components/PendingRequestsBadge";
+import { AdminHomeSection } from "@/components/AdminHomeSection";
 
 const tabs = [
   {
@@ -33,7 +33,7 @@ export default function HomePage() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <PendingRequestsBadge />
+        <AdminHomeSection />
         {tabs.map((tab) => (
           <Link
             key={tab.href}

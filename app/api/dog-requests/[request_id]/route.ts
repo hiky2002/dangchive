@@ -8,6 +8,22 @@ function isAdmin(req: NextRequest) {
   return req.headers.get("x-admin-key") === process.env.ADMIN_PASSWORD;
 }
 
+// GET /api/dog-requests/[request_id] — 누구나 status 조회 가능 (봉사자 폴링용)
+export async function GET(_req: NextRequest, { params }: Params) {
+  const { request_id } = await params;
+  const supabase = createServiceClient();
+
+  const { data, error } = await supabase
+    .from("dog_requests")
+    .select("request_id, status, requested_name, type")
+    .eq("request_id", request_id)
+    .single();
+
+  if (error || !data) return NextResponse.json({ error: "요청을 찾을 수 없습니다." }, { status: 404 });
+
+  return NextResponse.json({ request: data });
+}
+
 // PATCH /api/dog-requests/[request_id] — { action: 'approve' | 'reject' }
 export async function PATCH(req: NextRequest, { params }: Params) {
   if (!isAdmin(req)) return NextResponse.json({ error: "권한 없음" }, { status: 403 });

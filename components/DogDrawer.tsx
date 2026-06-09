@@ -29,9 +29,11 @@ export function DogDrawer({
   const [pickedIds,    setPickedIds]    = useState<Set<string>>(new Set());
 
   // 요청 대기 상태
-  const [pendingName,  setPendingName]  = useState<string | null>(null);
-  const [addError,     setAddError]     = useState<string | null>(null);
-  const [requesting,   setRequesting]   = useState(false);
+  const [pendingName,      setPendingName]      = useState<string | null>(null);
+  const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
+  const [rejected,         setRejected]         = useState(false);
+  const [addError,         setAddError]         = useState<string | null>(null);
+  const [requesting,       setRequesting]       = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -41,6 +43,8 @@ export function DogDrawer({
       setPickedIds(new Set());
       setAddError(null);
       setPendingName(null);
+      setPendingRequestId(null);
+      setRejected(false);
       setRequesting(false);
     } else {
       // 드로어 닫힐 때 폴링 중단
@@ -87,6 +91,8 @@ export function DogDrawer({
     if (!newName.trim() || requesting) return;
     setRequesting(true);
     setAddError(null);
+    setRejected(false);
+    const nameSnapshot = newName.trim();
     try {
       const res = await fetch("/api/dog-requests", {
         method: "POST",
@@ -94,26 +100,47 @@ export function DogDrawer({
         body: JSON.stringify({
           type: "add",
           requester: "봉사자",
-          requested_name: newName.trim(),
+          requested_name: nameSnapshot,
         }),
       });
       if (!res.ok) throw new Error("요청 실패");
+      const resData = await res.json();
+      const requestId: string = resData.request?.request_id ?? null;
 
-      setPendingName(newName.trim());
+      setPendingName(nameSnapshot);
+      setPendingRequestId(requestId);
       setNewName("");
 
-      // 3초마다 dogs 목록 갱신 (부모의 onDogApproved 콜백 + useEffect 연동)
+      // 3초마다 승인/거절 여부 확인
       pollRef.current = setInterval(async () => {
         try {
+          // 1. 거절 여부 확인 (request_id로 직접 조회)
+          if (requestId) {
+            const rr = await fetch(`/api/dog-requests/${requestId}`);
+            if (rr.ok) {
+              const rd = await rr.json();
+              if (rd.request?.status === "rejected") {
+                stopPolling();
+                setPendingName(null);
+                setPendingRequestId(null);
+                setRejected(true);
+                setNewName(nameSnapshot); // 이름 복원해서 재시도 가능하게
+                return;
+              }
+            }
+          }
+
+          // 2. 승인 여부 확인 (dogs 목록에 나타나면 승인된 것)
           const r    = await fetch("/api/dogs");
           const data = await r.json();
           const allDogs: Dog[] = data.dogs ?? [];
           const found = allDogs.find(
-            (d) => d.dog_name.trim().toLowerCase() === newName.trim().toLowerCase()
+            (d) => d.dog_name.trim().toLowerCase() === nameSnapshot.toLowerCase()
           );
           if (found) {
             stopPolling();
             setPendingName(null);
+            setPendingRequestId(null);
             setPickedIds((prev) => new Set(Array.from(prev).concat(found.dog_id)));
             if (onDogApproved) onDogApproved(found);
           }
@@ -238,7 +265,24 @@ export function DogDrawer({
 
         {/* 새 아이 추가 요청 */}
         <div className="px-4 py-3 border-t border-gray-100 shrink-0">
-          {pendingName ? (
+          {rejected ? (
+            /* 거절됨 */
+            <div className="bg-red-50 border border-red-100 rounded-2xl px-4 py-3 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-base shrink-0">❌</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-700">관리자가 요청을 거절했어요</p>
+                  <p className="text-xs text-red-400 mt-0.5">이름을 수정하거나 다른 아이를 선택해 주세요</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setRejected(false)}
+                className="w-full text-sm text-red-700 font-medium bg-red-100 hover:bg-red-200 py-2 rounded-xl transition active:scale-95"
+              >
+                다시 요청하기
+              </button>
+            </div>
+          ) : pendingName ? (
             /* 승인 대기 중 */
             <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 flex flex-col gap-2">
               <div className="flex items-center gap-3">
@@ -248,7 +292,7 @@ export function DogDrawer({
                   <p className="text-xs text-amber-500 mt-0.5">관리자가 승인하면 자동으로 선택돼요</p>
                 </div>
                 <button
-                  onClick={() => { stopPolling(); setPendingName(null); }}
+                  onClick={() => { stopPolling(); setPendingName(null); setPendingRequestId(null); }}
                   className="text-xs text-gray-400 hover:text-gray-600 shrink-0"
                 >
                   취소
@@ -256,7 +300,7 @@ export function DogDrawer({
               </div>
               {onSkip && (
                 <button
-                  onClick={() => { stopPolling(); setPendingName(null); onSkip(); }}
+                  onClick={() => { stopPolling(); setPendingName(null); setPendingRequestId(null); onSkip(); }}
                   className="w-full text-sm text-amber-700 font-medium bg-amber-100 hover:bg-amber-200 py-2 rounded-xl transition active:scale-95"
                 >
                   지금은 넘기고 나중에 이름 지정하기 →

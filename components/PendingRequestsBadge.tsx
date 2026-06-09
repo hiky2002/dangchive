@@ -3,14 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+const ADMIN_KEY = "dangchive_admin_key";
+
 export function PendingRequestsBadge() {
-  const [count, setCount] = useState<number | null>(null);
+  const [count,   setCount]   = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    // 관리자 여부 확인
+    const key = sessionStorage.getItem(ADMIN_KEY);
+    if (!key) return;
+    setIsAdmin(true);
+
     async function fetchCount() {
       try {
-        // admin key 없이 호출하면 빈 배열 반환 (관리자만 실제 숫자 확인 가능)
-        // 여기서는 public 엔드포인트로 count만 노출하는 방식 사용
         const res = await fetch("/api/dog-requests/count");
         if (!res.ok) return;
         const data = await res.json();
@@ -20,7 +26,8 @@ export function PendingRequestsBadge() {
     fetchCount();
   }, []);
 
-  if (!count) return null;
+  // 관리자가 아니거나 대기 건수 없으면 표시 안 함
+  if (!isAdmin || !count) return null;
 
   return (
     <Link
