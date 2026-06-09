@@ -204,6 +204,31 @@ function SortInner() {
     }
   }
 
+  // 승인 대기 중 "지금은 넘기기" → 선택된 사진을 needs_name으로 저장
+  async function handleSkipToNeedsName() {
+    if (!selectedIds.size) { setDrawerOpen(false); return; }
+    setActionLoading("needs_name");
+    setError(null);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map((photoId) =>
+          fetch("/api/upload", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ photoId, status: "needs_name" }),
+          })
+        )
+      );
+      setPhotos((prev) => prev.filter((p) => !selectedIds.has(p.photo_id)));
+      clearSelect();
+    } catch {
+      setError("상태 변경에 실패했습니다.");
+    } finally {
+      setActionLoading(null);
+      setDrawerOpen(false);
+    }
+  }
+
   function handleDogApproved(dog: Dog) {
     setDogs((prev) =>
       prev.some((d) => d.dog_id === dog.dog_id)
@@ -363,6 +388,7 @@ function SortInner() {
         onClose={() => setDrawerOpen(false)}
         onAssign={handleAssignDogs}
         onDogApproved={handleDogApproved}
+        onSkip={handleSkipToNeedsName}
       />
 
     </main>

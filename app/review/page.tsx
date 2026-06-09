@@ -227,6 +227,11 @@ function BatchDetailModal({
     setDrawerOpen(false);
   }
 
+  // 승인 대기 중 "지금은 넘기기" → 드로어만 닫고 다른 배치 처리 가능
+  function handleSkip() {
+    setDrawerOpen(false);
+  }
+
   // 확정 + 드라이브 전송
   async function handleConfirm() {
     if (pickedDogs.length === 0 || sending) return;
@@ -351,6 +356,7 @@ function BatchDetailModal({
         onClose={() => setDrawerOpen(false)}
         onAssign={handleDrawerAssign}
         onDogApproved={onDogApproved}
+        onSkip={handleSkip}
       />
     </>
   );

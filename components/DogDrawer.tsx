@@ -11,6 +11,7 @@ export type DogDrawerProps = {
   onClose: () => void;
   onAssign: (dogIds: string[], dogs: Dog[]) => void;
   onDogApproved?: (dog: Dog) => void; // 승인된 아이를 부모 목록에 추가
+  onSkip?: () => void;               // 승인 대기 중 "지금은 넘기기" → needs_name으로 저장
 };
 
 export function DogDrawer({
@@ -21,6 +22,7 @@ export function DogDrawer({
   onClose,
   onAssign,
   onDogApproved,
+  onSkip,
 }: DogDrawerProps) {
   const [search,       setSearch]       = useState("");
   const [newName,      setNewName]      = useState("");
@@ -238,18 +240,28 @@ export function DogDrawer({
         <div className="px-4 py-3 border-t border-gray-100 shrink-0">
           {pendingName ? (
             /* 승인 대기 중 */
-            <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
-              <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-amber-700">"{pendingName}" 승인 대기 중...</p>
-                <p className="text-xs text-amber-500 mt-0.5">관리자가 승인하면 자동으로 선택돼요</p>
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-700">"{pendingName}" 승인 대기 중...</p>
+                  <p className="text-xs text-amber-500 mt-0.5">관리자가 승인하면 자동으로 선택돼요</p>
+                </div>
+                <button
+                  onClick={() => { stopPolling(); setPendingName(null); }}
+                  className="text-xs text-gray-400 hover:text-gray-600 shrink-0"
+                >
+                  취소
+                </button>
               </div>
-              <button
-                onClick={() => { stopPolling(); setPendingName(null); }}
-                className="text-xs text-gray-400 hover:text-gray-600"
-              >
-                취소
-              </button>
+              {onSkip && (
+                <button
+                  onClick={() => { stopPolling(); setPendingName(null); onSkip(); }}
+                  className="w-full text-sm text-amber-700 font-medium bg-amber-100 hover:bg-amber-200 py-2 rounded-xl transition active:scale-95"
+                >
+                  지금은 넘기고 나중에 이름 지정하기 →
+                </button>
+              )}
             </div>
           ) : (
             /* 요청 입력 */
