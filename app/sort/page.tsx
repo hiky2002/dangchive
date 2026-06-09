@@ -29,6 +29,29 @@ function PageSpinner({ text = "불러오는 중..." }: { text?: string }) {
   );
 }
 
+function SortSkeleton() {
+  return (
+    <main className="max-w-md mx-auto pb-56">
+      {/* 헤더 스켈레톤 */}
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100">
+        <div className="w-5 h-5 bg-gray-200 rounded animate-pulse" />
+        <div className="w-20 h-4 bg-gray-200 rounded animate-pulse" />
+      </div>
+      {/* 섹션 라벨 */}
+      <div className="flex items-center justify-between px-4 mt-5 mb-2">
+        <div className="w-28 h-3 bg-gray-200 rounded animate-pulse" />
+        <div className="w-14 h-3 bg-gray-200 rounded animate-pulse" />
+      </div>
+      {/* 그리드 스켈레톤 */}
+      <div className="grid grid-cols-3 gap-px bg-gray-200">
+        {Array.from({ length: 9 }).map((_, i) => (
+          <div key={i} className="aspect-square bg-gray-100 animate-pulse" />
+        ))}
+      </div>
+    </main>
+  );
+}
+
 function SortInner() {
   const params  = useSearchParams();
   const batchId = (() => {
@@ -282,16 +305,21 @@ function SortInner() {
     );
   }
 
-  const hasNamedSelected = photos.some(
-    (p) => selectedIds.has(p.photo_id) && p.status === "named"
-  );
-  const hasTempSelected = photos.some(
-    (p) => selectedIds.has(p.photo_id) && p.status === "temp"
-  );
-  const allSelected = photos.length > 0 && selectedIds.size === photos.length;
-  const tempSelectedCount = Array.from(selectedIds).filter(
-    (id) => photos.find((p) => p.photo_id === id)?.status === "temp"
-  ).length;
+  // ── 섹션 분리
+  const tempPhotos  = photos.filter((p) => p.status === "temp");
+  const namedPhotos = photos.filter((p) => p.status === "named");
+
+  const hasNamedSelected    = namedPhotos.some((p) => selectedIds.has(p.photo_id));
+  const hasTempSelected     = tempPhotos.some((p)  => selectedIds.has(p.photo_id));
+  const namedSelectedCount  = namedPhotos.filter((p) => selectedIds.has(p.photo_id)).length;
+  const tempSelectedCount   = tempPhotos.filter((p)  => selectedIds.has(p.photo_id)).length;
+
+  const allTempSelected  = tempPhotos.length  > 0 && tempPhotos.every((p)  => selectedIds.has(p.photo_id));
+  const allNamedSelected = namedPhotos.length > 0 && namedPhotos.every((p) => selectedIds.has(p.photo_id));
+
+  // 섹션별 전체 선택 (다른 섹션 선택은 해제)
+  const selectTempAll  = () => setSelectedIds(new Set(tempPhotos.map((p)  => p.photo_id)));
+  const selectNamedAll = () => setSelectedIds(new Set(namedPhotos.map((p) => p.photo_id)));
 
   // batch_id 없이 접근하면 업로드 안내 표시
   if (!batchId) {
@@ -318,7 +346,7 @@ function SortInner() {
     );
   }
 
-  if (loading) return <PageSpinner />;
+  if (loading) return <SortSkeleton />;
 
   return (
     <main className="max-w-md mx-auto pb-56">
@@ -330,18 +358,10 @@ function SortInner() {
             ←
           </Link>
           <h1 className="text-base font-bold text-gray-900">사진 정리</h1>
-          {batchId && (
-            <span className="text-[11px] text-gray-400 font-mono bg-gray-100 px-2 py-0.5 rounded-full">
-              {batchId}
-            </span>
-          )}
         </div>
-        {photos.length > 0 && (
-          <button
-            onClick={allSelected ? clearSelect : selectAll}
-            className="text-sm text-[#8B95A1] font-medium"
-          >
-            {allSelected ? "전체 해제" : "전체 선택"}
+        {selectedIds.size > 0 && (
+          <button onClick={clearSelect} className="text-sm text-[#8B95A1] font-medium">
+            선택 해제
           </button>
         )}
       </div>
@@ -354,34 +374,75 @@ function SortInner() {
 
       <FailedPhotoBanner />
 
-      {selectedIds.size > 0 && (
-        <div className="mx-4 mt-3 px-4 py-2.5 bg-white rounded-xl flex items-center justify-between">
-          <span className="text-sm font-semibold text-[#191F28]">
-            {selectedIds.size}장 선택됨
-          </span>
-          <button onClick={clearSelect} className="text-xs text-[#8B95A1] hover:text-[#191F28]">
-            해제
-          </button>
-        </div>
-      )}
-
       {photos.length === 0 ? (
         <div className="text-center mt-24 text-gray-400">
           <p className="text-5xl mb-3">📭</p>
           <p className="text-sm">정리할 사진이 없습니다.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-px mt-3 bg-gray-200">
-          {photos.map((photo) => (
-            <PhotoCell
-              key={photo.photo_id}
-              photo={photo}
-              selected={selectedIds.has(photo.photo_id)}
-              onToggle={() => toggle(photo.photo_id)}
-              onLongPress={() => setPreviewPhoto(photo)}
-            />
-          ))}
-        </div>
+        <>
+          {/* ── 섹션 1: 이름 지정 필요 */}
+          {tempPhotos.length > 0 && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between px-4 mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-[#191F28]">이름 지정 필요</span>
+                  <span className="text-xs bg-[#F0F0F0] text-[#8B95A1] px-2 py-0.5 rounded-full">
+                    {tempPhotos.length}장
+                  </span>
+                </div>
+                <button
+                  onClick={allTempSelected ? clearSelect : selectTempAll}
+                  className="text-xs text-[#3182F6] font-medium"
+                >
+                  {allTempSelected ? "해제" : "전체 선택"}
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-px bg-gray-200">
+                {tempPhotos.map((photo) => (
+                  <PhotoCell
+                    key={photo.photo_id}
+                    photo={photo}
+                    selected={selectedIds.has(photo.photo_id)}
+                    onToggle={() => toggle(photo.photo_id)}
+                    onLongPress={() => setPreviewPhoto(photo)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── 섹션 2: 드라이브 전송 준비 완료 */}
+          {namedPhotos.length > 0 && (
+            <div className={tempPhotos.length > 0 ? "mt-6" : "mt-4"}>
+              <div className="flex items-center justify-between px-4 mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-[#191F28]">✅ 전송 준비 완료</span>
+                  <span className="text-xs bg-[#EBF3FF] text-[#3182F6] px-2 py-0.5 rounded-full">
+                    {namedPhotos.length}장
+                  </span>
+                </div>
+                <button
+                  onClick={allNamedSelected ? clearSelect : selectNamedAll}
+                  className="text-xs text-[#3182F6] font-medium"
+                >
+                  {allNamedSelected ? "해제" : "전체 선택"}
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-px bg-gray-200">
+                {namedPhotos.map((photo) => (
+                  <PhotoCell
+                    key={photo.photo_id}
+                    photo={photo}
+                    selected={selectedIds.has(photo.photo_id)}
+                    onToggle={() => toggle(photo.photo_id)}
+                    onLongPress={() => setPreviewPhoto(photo)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* 전송완료 사진 섹션 */}
@@ -486,6 +547,7 @@ function SortInner() {
 
       <BottomBar
         selectedCount={selectedIds.size}
+        namedSelectedCount={namedSelectedCount}
         hasNamedSelected={hasNamedSelected}
         hasTempSelected={hasTempSelected}
         tempSelectedCount={tempSelectedCount}
@@ -740,6 +802,7 @@ function PhotoCell({
 // ─────────────────────────────────────────────────────────────
 function BottomBar({
   selectedCount,
+  namedSelectedCount,
   hasNamedSelected,
   hasTempSelected,
   tempSelectedCount,
@@ -750,6 +813,7 @@ function BottomBar({
   onDelete,
 }: {
   selectedCount: number;
+  namedSelectedCount: number;
   hasNamedSelected: boolean;
   hasTempSelected: boolean;
   tempSelectedCount: number;
@@ -766,6 +830,7 @@ function BottomBar({
     <div className="fixed bottom-16 inset-x-0 z-[35] bg-white border-t border-gray-100 px-4 py-4">
       <div className="max-w-md mx-auto flex flex-col gap-2">
 
+        {/* 드라이브 전송 (이름 지정된 사진만) */}
         {hasNamedSelected && (
           <button
             onClick={onSendToDrive}
@@ -775,29 +840,33 @@ function BottomBar({
           >
             {actionLoading === "drive"
               ? "전송 중..."
-              : `🚀 구글 드라이브로 보내기 (${selectedCount}장)`}
+              : `🚀 드라이브로 보내기 (${namedSelectedCount}장)`}
           </button>
         )}
 
-        <div className="flex gap-2">
-          <button
-            onClick={onNeedsName}
-            disabled={inactive}
-            className="flex-1 bg-gray-100 text-gray-700 font-medium py-3.5 rounded-2xl text-sm
-                       disabled:opacity-40 active:scale-95 transition"
-          >
-            {actionLoading === "needs_name" ? "처리 중..." : "이 아이 누구예요?"}
-          </button>
-          <button
-            onClick={onOpenDrawer}
-            disabled={inactive}
-            className="flex-1 bg-white border-2 border-[#3182F6] text-[#3182F6] font-semibold py-3.5 rounded-2xl text-sm
-                       disabled:opacity-40 active:scale-95 transition"
-          >
-            🐾 이름 지정하기
-          </button>
-        </div>
+        {/* 이름 지정 버튼 (미지정 사진 선택됐을 때) */}
+        {hasTempSelected && (
+          <div className="flex gap-2">
+            <button
+              onClick={onNeedsName}
+              disabled={inactive}
+              className="flex-1 bg-gray-100 text-gray-700 font-medium py-3.5 rounded-2xl text-sm
+                         disabled:opacity-40 active:scale-95 transition"
+            >
+              {actionLoading === "needs_name" ? "처리 중..." : "이 아이 누구예요?"}
+            </button>
+            <button
+              onClick={onOpenDrawer}
+              disabled={inactive}
+              className="flex-1 bg-white border-2 border-[#3182F6] text-[#3182F6] font-semibold py-3.5 rounded-2xl text-sm
+                         disabled:opacity-40 active:scale-95 transition"
+            >
+              🐾 이름 지정하기
+            </button>
+          </div>
+        )}
 
+        {/* 삭제 버튼 */}
         {hasTempSelected && (
           <button
             onClick={onDelete}
@@ -809,6 +878,13 @@ function BottomBar({
               ? "삭제 중..."
               : `🗑️ 잘못 올린 사진 삭제 (${tempSelectedCount}장)`}
           </button>
+        )}
+
+        {/* 아무것도 선택 안 됐을 때 안내 */}
+        {selectedCount === 0 && !busy && (
+          <p className="text-xs text-center text-[#C2C8D0] py-1">
+            사진을 탭해서 선택하세요
+          </p>
         )}
 
       </div>
