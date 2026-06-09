@@ -224,6 +224,7 @@ function PendingRequests({ adminKey, dogs, onApproved }: { adminKey: string; dog
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [acting,     setActing]     = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // 마운트 시 + 5초마다 자동 갱신
   useEffect(() => {
@@ -235,10 +236,18 @@ function PendingRequests({ adminKey, dogs, onApproved }: { adminKey: string; dog
   async function loadRequests(manual = false) {
     if (manual) setRefreshing(true);
     try {
-      const res  = await fetch("/api/dog-requests?status=pending", { headers: { "x-admin-key": adminKey } });
-      if (!res.ok) return;
+      const res = await fetch("/api/dog-requests?status=pending", { headers: { "x-admin-key": adminKey } });
+      if (!res.ok) {
+        let errMsg = `HTTP ${res.status}`;
+        try { const d = await res.json(); if (d.error) errMsg += ` — ${d.error}`; } catch {}
+        setFetchError(errMsg);
+        return;
+      }
+      setFetchError(null);
       const data = await res.json();
       setRequests(data.requests ?? []);
+    } catch {
+      setFetchError("네트워크 오류");
     } finally {
       setLoading(false);
       if (manual) setRefreshing(false);
@@ -279,7 +288,12 @@ function PendingRequests({ adminKey, dogs, onApproved }: { adminKey: string; dog
           {refreshing ? "확인 중..." : "새로고침"}
         </button>
       </div>
-      {requests.length === 0 ? (
+      {fetchError ? (
+        <div className="px-4 py-3 bg-red-50 border border-red-100 rounded-2xl">
+          <p className="text-xs font-semibold text-red-600">요청 목록을 불러오지 못했습니다</p>
+          <p className="text-xs text-red-400 mt-0.5">{fetchError}</p>
+        </div>
+      ) : requests.length === 0 ? (
         <div className="px-4 py-3 bg-gray-50 rounded-2xl">
           <p className="text-xs text-gray-400">대기 중인 요청이 없습니다.</p>
         </div>
