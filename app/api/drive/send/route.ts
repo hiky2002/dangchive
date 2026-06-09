@@ -71,8 +71,8 @@ export async function POST(req: NextRequest) {
   let failCount = 0;
   const results: { photo_id: string; saved_name?: string; drive_url?: string; error?: string }[] = [];
 
-  // 사진 3장씩 병렬 처리
-  const CONCURRENCY = 3;
+  // 사진 5장씩 병렬 처리
+  const CONCURRENCY = 5;
   for (let i = 0; i < photos.length; i += CONCURRENCY) {
     const chunk = photos.slice(i, i + CONCURRENCY);
 

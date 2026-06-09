@@ -72,6 +72,7 @@ function SortInner() {
   const [drawerOpen,    setDrawerOpen]    = useState(false);
   const [actionLoading, setActionLoading] =
     useState<"needs_name" | "naming" | "drive" | "delete" | null>(null);
+  const [driveProgress, setDriveProgress] = useState<{ done: number; total: number } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [previewPhoto,  setPreviewPhoto]  = useState<Photo | null>(null);
 
@@ -180,36 +181,56 @@ function SortInner() {
   }
 
   async function handleSendToDrive() {
-    const targets = photos.filter(
-      (p) => selectedIds.has(p.photo_id) && p.status === "named"
-    );
+    const targets = namedPhotos.filter((p) => selectedIds.has(p.photo_id));
     if (!targets.length) return;
+
     setActionLoading("drive");
     setError(null);
+    setDriveProgress({ done: 0, total: targets.length });
+
+    // 한 번에 최대 BATCH_SIZE장씩 API 호출 (병렬 처리는 API 내부에서)
+    const BATCH_SIZE = 10;
     let fail = 0;
-    const justSent: typeof photos = [];
-    for (const photo of targets) {
+
+    for (let i = 0; i < targets.length; i += BATCH_SIZE) {
+      const chunk = targets.slice(i, i + BATCH_SIZE);
       try {
         const res = await fetch("/api/drive/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ photoId: photo.photo_id }),
+          body: JSON.stringify({ photo_ids: chunk.map((p) => p.photo_id) }),
         });
-        if (!res.ok) throw new Error();
-        justSent.push({ ...photo, status: "sent" });
-        setPhotos((prev) => prev.filter((p) => p.photo_id !== photo.photo_id));
+
+        const data = await res.json().catch(() => ({ results: [] }));
+        type DriveResult = { photo_id: string; error?: string };
+        const sentIds = new Set<string>(
+          ((data.results ?? []) as DriveResult[])
+            .filter((r) => !r.error)
+            .map((r) => r.photo_id)
+        );
+        fail += chunk.length - sentIds.size;
+
+        // 성공한 사진만 즉시 UI 반영
+        const justSent = chunk
+          .filter((p) => sentIds.has(p.photo_id))
+          .map((p) => ({ ...p, status: "sent" as const }));
+
+        setPhotos((prev) => prev.filter((p) => !sentIds.has(p.photo_id)));
+        if (justSent.length > 0) {
+          setSentPhotos((prev) => [...justSent, ...prev]);
+          setSentOpen(true);
+        }
       } catch {
-        fail++;
+        fail += chunk.length;
       }
+
+      setDriveProgress({ done: Math.min(i + BATCH_SIZE, targets.length), total: targets.length });
     }
-    // 전송 성공한 사진을 sentPhotos에 즉시 추가하고 섹션 자동 펼치기
-    if (justSent.length > 0) {
-      setSentPhotos((prev) => [...justSent, ...prev]);
-      setSentOpen(true);
-    }
+
     if (fail) setError(`${fail}장 전송에 실패했습니다.`);
     clearSelect();
     setActionLoading(null);
+    setDriveProgress(null);
   }
 
   // temp 사진 삭제
@@ -552,6 +573,7 @@ function SortInner() {
         hasTempSelected={hasTempSelected}
         tempSelectedCount={tempSelectedCount}
         actionLoading={actionLoading}
+        driveProgress={driveProgress}
         onNeedsName={handleNeedsName}
         onOpenDrawer={() => setDrawerOpen(true)}
         onSendToDrive={handleSendToDrive}
@@ -807,6 +829,7 @@ function BottomBar({
   hasTempSelected,
   tempSelectedCount,
   actionLoading,
+  driveProgress,
   onNeedsName,
   onOpenDrawer,
   onSendToDrive,
@@ -818,6 +841,7 @@ function BottomBar({
   hasTempSelected: boolean;
   tempSelectedCount: number;
   actionLoading: string | null;
+  driveProgress: { done: number; total: number } | null;
   onNeedsName: () => void;
   onOpenDrawer: () => void;
   onSendToDrive: () => void;
@@ -825,27 +849,44 @@ function BottomBar({
 }) {
   const busy     = actionLoading !== null;
   const inactive = selectedCount === 0 || busy;
+  const isSending = actionLoading === "drive";
 
   return (
     <div className="fixed bottom-16 inset-x-0 z-[35] bg-white border-t border-gray-100 px-4 py-4">
       <div className="max-w-md mx-auto flex flex-col gap-2">
 
-        {/* 드라이브 전송 (이름 지정된 사진만) */}
-        {hasNamedSelected && (
+        {/* 드라이브 전송 진행 바 */}
+        {isSending && driveProgress && (
+          <div className="pb-1">
+            <div className="flex justify-between text-xs mb-1.5">
+              <span className="text-[#3182F6] font-medium">🚀 드라이브 전송 중...</span>
+              <span className="text-[#8B95A1]">{driveProgress.done} / {driveProgress.total}장</span>
+            </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#3182F6] rounded-full transition-all duration-500"
+                style={{ width: `${Math.round((driveProgress.done / driveProgress.total) * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* 드라이브 전송 버튼 (이름 지정된 사진만) */}
+        {(hasNamedSelected || isSending) && (
           <button
             onClick={onSendToDrive}
             disabled={busy}
             className="w-full bg-[#3182F6] text-white font-semibold py-3.5 rounded-2xl text-sm
-                       disabled:opacity-40 active:scale-95 transition"
+                       disabled:opacity-60 active:scale-95 transition"
           >
-            {actionLoading === "drive"
-              ? "전송 중..."
+            {isSending
+              ? `전송 중... (${driveProgress?.done ?? 0}/${driveProgress?.total ?? namedSelectedCount}장)`
               : `🚀 드라이브로 보내기 (${namedSelectedCount}장)`}
           </button>
         )}
 
         {/* 이름 지정 버튼 (미지정 사진 선택됐을 때) */}
-        {hasTempSelected && (
+        {hasTempSelected && !isSending && (
           <div className="flex gap-2">
             <button
               onClick={onNeedsName}
@@ -867,7 +908,7 @@ function BottomBar({
         )}
 
         {/* 삭제 버튼 */}
-        {hasTempSelected && (
+        {hasTempSelected && !isSending && (
           <button
             onClick={onDelete}
             disabled={busy}
