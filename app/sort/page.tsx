@@ -188,44 +188,43 @@ function SortInner() {
     setError(null);
     setDriveProgress({ done: 0, total: targets.length });
 
-    // 한 번에 최대 BATCH_SIZE장씩 API 호출 (병렬 처리는 API 내부에서)
-    const BATCH_SIZE = 10;
+    // 사진 1장씩 개별 API 호출 — 진행률을 한 장씩 갱신
+    const CONCURRENCY = 3;
+    let done = 0;
     let fail = 0;
+    let queueIdx = 0; // JS 단일 스레드 → ++ 연산은 원자적
 
-    for (let i = 0; i < targets.length; i += BATCH_SIZE) {
-      const chunk = targets.slice(i, i + BATCH_SIZE);
-      try {
-        const res = await fetch("/api/drive/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ photo_ids: chunk.map((p) => p.photo_id) }),
-        });
+    type DriveResult = { photo_id: string; error?: string };
 
-        const data = await res.json().catch(() => ({ results: [] }));
-        type DriveResult = { photo_id: string; error?: string };
-        const sentIds = new Set<string>(
-          ((data.results ?? []) as DriveResult[])
-            .filter((r) => !r.error)
-            .map((r) => r.photo_id)
-        );
-        fail += chunk.length - sentIds.size;
-
-        // 성공한 사진만 즉시 UI 반영
-        const justSent = chunk
-          .filter((p) => sentIds.has(p.photo_id))
-          .map((p) => ({ ...p, status: "sent" as const }));
-
-        setPhotos((prev) => prev.filter((p) => !sentIds.has(p.photo_id)));
-        if (justSent.length > 0) {
-          setSentPhotos((prev) => [...justSent, ...prev]);
-          setSentOpen(true);
+    async function worker() {
+      while (true) {
+        const myIdx = queueIdx++;
+        if (myIdx >= targets.length) break;
+        const photo = targets[myIdx];
+        try {
+          const res  = await fetch("/api/drive/send", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ photo_ids: [photo.photo_id] }),
+          });
+          const data   = await res.json().catch(() => ({ results: [] }));
+          const result = ((data.results ?? []) as DriveResult[])[0];
+          if (result && !result.error) {
+            setPhotos((prev) => prev.filter((p) => p.photo_id !== photo.photo_id));
+            setSentPhotos((prev) => [{ ...photo, status: "sent" as const }, ...prev]);
+            setSentOpen(true);
+          } else {
+            fail++;
+          }
+        } catch {
+          fail++;
         }
-      } catch {
-        fail += chunk.length;
+        done++;
+        setDriveProgress({ done, total: targets.length });
       }
-
-      setDriveProgress({ done: Math.min(i + BATCH_SIZE, targets.length), total: targets.length });
     }
+
+    await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
     if (fail) setError(`${fail}장 전송에 실패했습니다.`);
     clearSelect();

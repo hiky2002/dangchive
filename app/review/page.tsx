@@ -216,11 +216,12 @@ function BatchDetailModal({
   onDogApproved: (dog: Dog) => void;
 }) {
   // 사진별 지정된 아이: { photo_id → Dog[] }
-  const [assignments, setAssignments] = useState<Record<string, Dog[]>>({});
-  const [currentIdx,  setCurrentIdx]  = useState(0);
-  const [drawerOpen,  setDrawerOpen]  = useState(false);
-  const [sending,     setSending]     = useState(false);
-  const [sendError,   setSendError]   = useState<string | null>(null);
+  const [assignments,   setAssignments]   = useState<Record<string, Dog[]>>({});
+  const [currentIdx,    setCurrentIdx]    = useState(0);
+  const [drawerOpen,    setDrawerOpen]    = useState(false);
+  const [sending,       setSending]       = useState(false);
+  const [sendError,     setSendError]     = useState<string | null>(null);
+  const [driveProgress, setDriveProgress] = useState<{ done: number; total: number } | null>(null);
 
   const currentPhoto      = batch.photos[currentIdx];
   const currentAssignment = currentPhoto ? (assignments[currentPhoto.photo_id] ?? []) : [];
@@ -247,7 +248,7 @@ function BatchDetailModal({
     const assignedPhotos = batch.photos.filter((p) => assignments[p.photo_id]);
 
     try {
-      // 1. 사진별 이름 patch
+      // 1. 사진별 이름 patch (병렬)
       const patchResults = await Promise.all(
         assignedPhotos.map((photo) =>
           fetch("/api/upload", {
@@ -265,23 +266,49 @@ function BatchDetailModal({
         throw new Error(`이름 지정 저장 실패 (${failedPatches.length}장). 다시 시도해 주세요.`);
       }
 
-      // 2. 사진별 드라이브 전송
+      // 2. 드라이브 전송 — 1장씩 병렬 3개씩, 진행률 실시간 갱신
+      const total = assignedPhotos.length;
+      setDriveProgress({ done: 0, total });
+
+      const CONCURRENCY = 3;
+      let done = 0;
       let failCount = 0;
-      for (const photo of assignedPhotos) {
-        const res = await fetch("/api/drive/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ photoId: photo.photo_id }),
-        });
-        if (!res.ok) failCount++;
+      let queueIdx = 0;
+
+      type DriveResult = { photo_id: string; error?: string };
+
+      async function worker() {
+        while (true) {
+          const myIdx = queueIdx++;
+          if (myIdx >= assignedPhotos.length) break;
+          const photo = assignedPhotos[myIdx];
+          try {
+            const res  = await fetch("/api/drive/send", {
+              method:  "POST",
+              headers: { "Content-Type": "application/json" },
+              body:    JSON.stringify({ photo_ids: [photo.photo_id] }),
+            });
+            const data   = await res.json().catch(() => ({ results: [] }));
+            const result = ((data.results ?? []) as DriveResult[])[0];
+            if (!result || result.error) failCount++;
+          } catch {
+            failCount++;
+          }
+          done++;
+          setDriveProgress({ done, total });
+        }
       }
 
+      await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+
+      setDriveProgress(null);
       if (failCount > 0) {
         setSendError(`${failCount}장 드라이브 전송에 실패했습니다. 나머지는 완료됐어요.`);
       }
       onDone();
     } catch (e) {
       setSendError(e instanceof Error ? e.message : "처리 중 오류가 발생했습니다.");
+      setDriveProgress(null);
       setSending(false);
     }
   }
@@ -371,6 +398,22 @@ function BatchDetailModal({
             </button>
           )}
 
+          {/* 드라이브 전송 진행률 바 */}
+          {driveProgress && (
+            <div className="mb-3">
+              <div className="flex justify-between text-xs text-gray-400 mb-1.5">
+                <span>드라이브 전송 중...</span>
+                <span>{driveProgress.done} / {driveProgress.total}장</span>
+              </div>
+              <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#3182F6] rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${(driveProgress.done / driveProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* 확정 + 드라이브 전송 */}
           {assignedCount > 0 && (
             <button
@@ -380,7 +423,7 @@ function BatchDetailModal({
                          disabled:opacity-50 active:scale-95 transition"
             >
               {sending
-                ? "드라이브에 전송 중..."
+                ? `드라이브에 전송 중...`
                 : `${assignedCount}장 확정 + 드라이브 전송`}
             </button>
           )}
