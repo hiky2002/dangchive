@@ -193,28 +193,33 @@ function AdminLoginModal({ onClose, onLogin }: { onClose: () => void; onLogin: (
 // ─────────────────────────────────────────────────────────────
 // PendingRequests
 // ─────────────────────────────────────────────────────────────
-// 유사 이름 찾기: 언더스코어 뒤 베이스 이름이나 전체 이름이 겹치는 경우
+// 유사 이름 찾기: 한글 토큰 기준으로 겹치는 부분이 있으면 유사로 판단
 function findSimilarDogs(requestedName: string, dogs: Dog[]): Dog[] {
   const normalize = (s: string) => s.trim().toLowerCase();
-  const reqNorm   = normalize(requestedName);
 
-  // 언더스코어 기준 마지막 조각 (예: "22_099_루루" → "루루")
-  const basePart  = (s: string) => {
-    const parts = normalize(s).split("_");
-    return parts[parts.length - 1];
-  };
-  const reqBase = basePart(requestedName);
+  // 숫자·언더스코어·공백·괄호를 제거하고 한글 토큰만 추출
+  // 예: "(임보)떡국이 23_701" → ["임보", "떡국이"]
+  //     "23_0701_떡국이"      → ["떡국이"]
+  const koreanTokens = (s: string): string[] =>
+    normalize(s)
+      .replace(/[0-9_\s()[\]]/g, " ")
+      .split(" ")
+      .filter((t) => t.length > 0);
+
+  const reqNorm   = normalize(requestedName);
+  const reqTokens = koreanTokens(requestedName);
 
   return dogs.filter((d) => {
-    const dNorm = normalize(d.dog_name);
-    const dBase = basePart(d.dog_name);
-    // 완전히 같은 이름은 제외 (동일 요청)
-    if (dNorm === reqNorm) return false;
-    // 베이스 파트가 같거나, 한쪽이 다른쪽을 포함
-    return (
-      (reqBase.length > 0 && dBase === reqBase) ||
-      dNorm.includes(reqNorm) ||
-      reqNorm.includes(dNorm)
+    const dNorm   = normalize(d.dog_name);
+    if (dNorm === reqNorm) return false; // 완전히 같은 이름은 제외
+
+    const dTokens = koreanTokens(d.dog_name);
+
+    // 2글자 이상인 토큰끼리 하나라도 겹치면 유사
+    return reqTokens.some(
+      (rt) =>
+        rt.length > 1 &&
+        dTokens.some((dt) => dt.length > 1 && (rt.includes(dt) || dt.includes(rt)))
     );
   });
 }
@@ -321,14 +326,12 @@ function PendingRequests({ adminKey, onApproved }: { adminKey: string; onApprove
 
                 {/* 유사 이름 경고 */}
                 {similar.length > 0 && (
-                  <div className="bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 mb-3">
-                    <p className="text-xs font-semibold text-orange-700 mb-1">⚠️ 비슷한 이름이 이미 있어요!</p>
+                  <div className="mb-3">
                     {similar.map((d) => (
-                      <p key={d.dog_id} className="text-xs text-orange-600">
-                        · {d.dog_name}
+                      <p key={d.dog_id} className="text-xs font-medium text-red-500">
+                        {d.dog_name}이라는 파일이 현재 존재합니다
                       </p>
                     ))}
-                    <p className="text-xs text-orange-500 mt-1">중복 여부를 한 번 더 확인해 주세요.</p>
                   </div>
                 )}
 
