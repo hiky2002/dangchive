@@ -277,7 +277,7 @@ function BatchDetailModal({
 
       type DriveResult = { photo_id: string; error?: string };
 
-      async function worker() {
+      const worker = async () => {
         while (true) {
           const myIdx = queueIdx++;
           if (myIdx >= assignedPhotos.length) break;
@@ -297,7 +297,7 @@ function BatchDetailModal({
           done++;
           setDriveProgress({ done, total });
         }
-      }
+      };
 
       await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 

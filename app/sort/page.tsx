@@ -196,7 +196,7 @@ function SortInner() {
 
     type DriveResult = { photo_id: string; error?: string };
 
-    async function worker() {
+    const worker = async () => {
       while (true) {
         const myIdx = queueIdx++;
         if (myIdx >= targets.length) break;
@@ -222,7 +222,7 @@ function SortInner() {
         done++;
         setDriveProgress({ done, total: targets.length });
       }
-    }
+    };
 
     await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
