@@ -38,28 +38,35 @@ export async function POST(req: NextRequest) {
 
   for (const photo of photos) {
     const fileId = extractFileId(photo.drive_url);
-    try {
-      if (fileId) {
-        // Drive에서 파일 삭제 (휴지통으로 이동)
+
+    // Drive 삭제는 베스트에포트 (실패해도 DB는 항상 업데이트)
+    let driveError: string | undefined;
+    if (fileId) {
+      try {
         await drive.files.update({
           fileId,
           requestBody: { trashed: true },
           supportsAllDrives: true,
         });
+      } catch (err) {
+        driveError = err instanceof Error ? err.message : String(err);
+        console.warn(`[drive/delete] Drive 삭제 실패 (계속 진행): ${photo.photo_id} — ${driveError}`);
       }
-      // DB 상태를 "deleted"로 변경
-      await supabase
-        .from("photos")
-        .update({ status: "deleted", drive_url: null, saved_name: null })
-        .eq("photo_id", photo.photo_id);
+    }
 
-      successCount++;
-      results.push({ photo_id: photo.photo_id, ok: true });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(`[drive/delete] ❌ ${photo.photo_id}: ${message}`);
+    // DB 상태는 Drive 성공 여부와 무관하게 항상 "deleted"로
+    const { error: dbErr } = await supabase
+      .from("photos")
+      .update({ status: "deleted", drive_url: null, saved_name: null })
+      .eq("photo_id", photo.photo_id);
+
+    if (dbErr) {
+      console.error(`[drive/delete] DB 업데이트 실패: ${photo.photo_id} — ${dbErr.message}`);
       failCount++;
-      results.push({ photo_id: photo.photo_id, ok: false, error: message });
+      results.push({ photo_id: photo.photo_id, ok: false, error: dbErr.message });
+    } else {
+      successCount++;
+      results.push({ photo_id: photo.photo_id, ok: true, ...(driveError ? { driveError } : {}) });
     }
   }
 
