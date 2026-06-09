@@ -91,7 +91,7 @@ export default function DogsPage() {
       )}
 
       {/* 관리자: 대기 중인 요청 */}
-      {isAdmin && <PendingRequests adminKey={adminKey!} dogs={dogs} onApproved={load} />}
+      {isAdmin && <PendingRequests adminKey={adminKey!} onApproved={load} />}
 
       {/* 관리자: 새 아이 추가 */}
       {isAdmin && <AdminAddDog adminKey={adminKey!} onAdded={load} />}
@@ -219,8 +219,9 @@ function findSimilarDogs(requestedName: string, dogs: Dog[]): Dog[] {
   });
 }
 
-function PendingRequests({ adminKey, dogs, onApproved }: { adminKey: string; dogs: Dog[]; onApproved: () => void }) {
+function PendingRequests({ adminKey, onApproved }: { adminKey: string; onApproved: () => void }) {
   const [requests,   setRequests]   = useState<DogRequest[]>([]);
+  const [dogs,       setDogs]       = useState<Dog[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [acting,     setActing]     = useState<string | null>(null);
@@ -232,6 +233,14 @@ function PendingRequests({ adminKey, dogs, onApproved }: { adminKey: string; dog
     const timer = setInterval(loadRequests, 5000);
     return () => clearInterval(timer);
   }, [adminKey]); // eslint-disable-line
+
+  // dogs 목록 별도 로드 (유사 이름 비교용)
+  useEffect(() => {
+    fetch("/api/dogs")
+      .then(r => r.json())
+      .then(d => setDogs(d.dogs ?? []))
+      .catch(() => {});
+  }, []); // eslint-disable-line
 
   async function loadRequests(manual = false) {
     if (manual) setRefreshing(true);
