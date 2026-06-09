@@ -37,11 +37,6 @@ export default function HomePage() {
         <p className="mt-1 text-[#8B95A1] text-sm">LCKD 아이들 사진 아카이브</p>
       </div>
 
-      {/* 관리자 영역 — 카드 위 */}
-      <div className="mb-4">
-        <AdminHomeSection />
-      </div>
-
       {/* 메뉴 카드 */}
       <div className="flex flex-col gap-2.5">
         {tabs.map((tab) => (
@@ -63,6 +58,9 @@ export default function HomePage() {
             <span className="ml-auto text-[#C2C8D0] text-xl">›</span>
           </Link>
         ))}
+
+        {/* 관리자 로그인 */}
+        <AdminHomeSection />
 
         {/* 의견 보내기 */}
         <FeedbackButton />
