@@ -109,13 +109,13 @@ export function AdminHomeSection() {
             onChange={(e) => { setPassword(e.target.value); setLoginError(false); }}
             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
             placeholder="비밀번호 입력"
-            className={`flex-1 border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#191F28]
+            className={`flex-1 border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3182F6]
               ${loginError ? "border-red-300 bg-red-50" : "border-gray-200"}`}
           />
           <button
             onClick={handleLogin}
             disabled={!password.trim() || checking}
-            className="px-4 py-2.5 bg-[#191F28] text-white text-sm font-medium rounded-xl disabled:opacity-40 active:scale-95 transition"
+            className="px-4 py-2.5 bg-[#3182F6] text-white text-sm font-medium rounded-xl disabled:opacity-40 active:scale-95 transition"
           >
             {checking ? "..." : "확인"}
           </button>

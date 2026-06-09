@@ -167,14 +167,14 @@ function AdminLoginModal({ onClose, onLogin }: { onClose: () => void; onLogin: (
           placeholder="비밀번호"
           autoFocus
           className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm mb-3
-                     focus:outline-none focus:ring-2 focus:ring-[#191F28]"
+                     focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
         />
         {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
         <div className="flex gap-2">
           <button
             onClick={handleSubmit}
             disabled={!pw.trim() || loading}
-            className="flex-1 bg-[#191F28] text-white text-sm font-semibold py-3 rounded-xl disabled:opacity-40 active:scale-95 transition"
+            className="flex-1 bg-[#3182F6] text-white text-sm font-semibold py-3 rounded-xl disabled:opacity-40 active:scale-95 transition"
           >
             {loading ? "확인 중..." : "입력"}
           </button>
@@ -347,7 +347,7 @@ function PendingRequests({ adminKey, onApproved }: { adminKey: string; onApprove
                   <button
                     onClick={() => handleAction(req.request_id, "approve")}
                     disabled={acting === req.request_id}
-                    className="flex-1 bg-[#191F28] text-white text-xs font-semibold py-2 rounded-xl disabled:opacity-40 active:scale-95 transition"
+                    className="flex-1 bg-[#3182F6] text-white text-xs font-semibold py-2 rounded-xl disabled:opacity-40 active:scale-95 transition"
                   >
                     {acting === req.request_id ? "처리 중..." : "✓ 승인"}
                   </button>
@@ -408,12 +408,12 @@ function AdminAddDog({ adminKey, onAdded }: { adminKey: string; onAdded: () => v
           onKeyDown={(e) => e.key === "Enter" && handleAdd()}
           placeholder="이름 입력 (예: 콩이)"
           maxLength={20}
-          className="flex-1 border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#191F28]"
+          className="flex-1 border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
         />
         <button
           onClick={handleAdd}
           disabled={!name.trim() || loading}
-          className="px-4 py-2.5 bg-[#191F28] text-white text-sm font-semibold rounded-xl disabled:opacity-40 hover:bg-[#2D3748] active:scale-95 transition"
+          className="px-4 py-2.5 bg-[#3182F6] text-white text-sm font-semibold rounded-xl disabled:opacity-40 hover:bg-[#1a6fe0] active:scale-95 transition"
         >
           {loading ? "..." : "추가"}
         </button>
@@ -465,7 +465,7 @@ function UserAddRequest() {
           onChange={(e) => setRequester(e.target.value)}
           placeholder="내 이름"
           maxLength={10}
-          className="w-20 border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#191F28]"
+          className="w-20 border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
         />
         <input
           type="text"
@@ -474,12 +474,12 @@ function UserAddRequest() {
           onKeyDown={(e) => e.key === "Enter" && handleRequest()}
           placeholder="추가할 아이 이름"
           maxLength={20}
-          className="flex-1 border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#191F28]"
+          className="flex-1 border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
         />
         <button
           onClick={handleRequest}
           disabled={!name.trim() || loading}
-          className="px-4 py-2.5 bg-[#191F28] text-white text-sm font-semibold rounded-xl disabled:opacity-40 active:scale-95 transition"
+          className="px-4 py-2.5 bg-[#3182F6] text-white text-sm font-semibold rounded-xl disabled:opacity-40 active:scale-95 transition"
         >
           {loading ? "..." : "요청"}
         </button>
@@ -541,13 +541,13 @@ function AdminDogCard({ dog, adminKey, onUpdated }: { dog: Dog; adminKey: string
         onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setMode("view"); }}
         maxLength={20}
         autoFocus
-        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#191F28]"
+        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
       />
       <p className="text-[11px] text-gray-400">저장 시 드라이브 폴더명도 함께 변경됩니다</p>
       {editError && <p className="text-xs text-red-500">{editError}</p>}
       <div className="flex gap-2">
         <button onClick={saveEdit} disabled={!editName.trim() || editLoading}
-          className="flex-1 bg-[#191F28] text-white text-sm font-semibold py-2 rounded-xl disabled:opacity-40 active:scale-95 transition">
+          className="flex-1 bg-[#3182F6] text-white text-sm font-semibold py-2 rounded-xl disabled:opacity-40 active:scale-95 transition">
           {editLoading ? "저장 중..." : "저장"}
         </button>
         <button onClick={() => setMode("view")}
@@ -646,14 +646,14 @@ function UserDogCard({ dog }: { dog: Dog }) {
           <p className="text-xs text-gray-400">"{dog.dog_name}"의 새 이름을 입력하세요</p>
           <input type="text" value={requester} onChange={(e) => setRequester(e.target.value)}
             placeholder="내 이름 (예: 홍길동)" maxLength={10}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#191F28]" />
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3182F6]" />
           <div className="flex gap-2">
             <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleRequest()}
               placeholder="새 이름" maxLength={20} autoFocus
-              className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#191F28]" />
+              className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3182F6]" />
             <button onClick={handleRequest} disabled={!newName.trim() || loading}
-              className="px-4 py-2 bg-[#191F28] text-white text-sm font-semibold rounded-xl disabled:opacity-40 active:scale-95 transition">
+              className="px-4 py-2 bg-[#3182F6] text-white text-sm font-semibold rounded-xl disabled:opacity-40 active:scale-95 transition">
               {loading ? "..." : "요청"}
             </button>
           </div>

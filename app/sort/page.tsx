@@ -52,6 +52,14 @@ function SortInner() {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [previewPhoto,  setPreviewPhoto]  = useState<Photo | null>(null);
 
+  // 전송완료 사진 섹션
+  const [sentPhotos,       setSentPhotos]       = useState<Photo[]>([]);
+  const [sentOpen,         setSentOpen]         = useState(false);
+  const [sentSelectedIds,  setSentSelectedIds]  = useState<Set<string>>(new Set());
+  const [driveDeleteConfirm, setDriveDeleteConfirm] = useState(false);
+  const [driveDeleting,    setDriveDeleting]    = useState(false);
+  const [driveDeleteMsg,   setDriveDeleteMsg]   = useState<string | null>(null);
+
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -61,18 +69,20 @@ function SortInner() {
           if (batchId) p.set("batch_id", batchId);
           return p.toString();
         };
-        const [r1, r2, r3] = await Promise.all([
+        const [r1, r2, r3, r4] = await Promise.all([
           fetch(`/api/upload?${qs("temp")}`),
           fetch(`/api/upload?${qs("named")}`),
           fetch("/api/dogs"),
+          fetch(`/api/upload?${qs("sent")}`),
         ]);
         if (!r1.ok || !r2.ok) {
           const errBody = await (!r1.ok ? r1 : r2).json().catch(() => ({}));
           throw new Error(errBody.error ?? "사진 조회 API 오류");
         }
-        const [d1, d2, d3] = await Promise.all([r1.json(), r2.json(), r3.json()]);
+        const [d1, d2, d3, d4] = await Promise.all([r1.json(), r2.json(), r3.json(), r4.json()]);
         setPhotos([...(d1.photos ?? []), ...(d2.photos ?? [])]);
         setDogs(d3.dogs ?? []);
+        setSentPhotos(d4.photos ?? []);
       } catch {
         setError("데이터를 불러오지 못했습니다.");
       } finally {
@@ -232,6 +242,34 @@ function SortInner() {
     }
   }
 
+  // 전송완료 사진 Drive 삭제
+  async function handleDriveDelete() {
+    if (!sentSelectedIds.size) return;
+    setDriveDeleteConfirm(false);
+    setDriveDeleting(true);
+    setDriveDeleteMsg(null);
+    try {
+      const res  = await fetch("/api/drive/delete", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ photo_ids: Array.from(sentSelectedIds) }),
+      });
+      const data = await res.json();
+      setSentPhotos((prev) => prev.filter((p) => !sentSelectedIds.has(p.photo_id)));
+      setSentSelectedIds(new Set());
+      setDriveDeleteMsg(
+        data.fail_count > 0
+          ? `${data.success_count}장 삭제 완료 / ${data.fail_count}장 실패`
+          : `✅ ${data.success_count}장 드라이브에서 삭제됐어요`
+      );
+      setTimeout(() => setDriveDeleteMsg(null), 4000);
+    } catch {
+      setDriveDeleteMsg("삭제 중 오류가 발생했습니다.");
+    } finally {
+      setDriveDeleting(false);
+    }
+  }
+
   function handleDogApproved(dog: Dog) {
     setDogs((prev) =>
       prev.some((d) => d.dog_id === dog.dog_id)
@@ -268,7 +306,7 @@ function SortInner() {
         </p>
         <Link
           href="/upload"
-          className="inline-block bg-[#191F28] text-white font-semibold px-6 py-3 rounded-2xl text-sm active:scale-95 transition"
+          className="inline-block bg-[#3182F6] text-white font-semibold px-6 py-3 rounded-2xl text-sm active:scale-95 transition"
         >
           📸 사진 올리러 가기
         </Link>
@@ -342,6 +380,106 @@ function SortInner() {
         </div>
       )}
 
+      {/* 전송완료 사진 섹션 */}
+      {sentPhotos.length > 0 && (
+        <div className="mx-4 mt-4 mb-2">
+          <button
+            onClick={() => setSentOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-white rounded-2xl text-left"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-[#191F28]">🚀 전송완료</span>
+              <span className="text-xs bg-[#F0F0F0] text-[#8B95A1] px-2 py-0.5 rounded-full">
+                {sentPhotos.length}장
+              </span>
+            </div>
+            <span className="text-xs text-[#8B95A1]">{sentOpen ? "접기 ▲" : "펼치기 ▼"}</span>
+          </button>
+
+          {sentOpen && (
+            <div className="mt-2">
+              {/* 전체선택 / 해제 */}
+              <div className="flex items-center justify-between px-1 mb-2">
+                <p className="text-xs text-[#8B95A1]">잘못 보낸 사진을 선택해 드라이브에서 삭제하세요</p>
+                <button
+                  onClick={() =>
+                    sentSelectedIds.size === sentPhotos.length
+                      ? setSentSelectedIds(new Set())
+                      : setSentSelectedIds(new Set(sentPhotos.map((p) => p.photo_id)))
+                  }
+                  className="text-xs text-[#3182F6] shrink-0 ml-2"
+                >
+                  {sentSelectedIds.size === sentPhotos.length ? "전체 해제" : "전체 선택"}
+                </button>
+              </div>
+
+              {/* 사진 그리드 */}
+              <div className="grid grid-cols-3 gap-px bg-gray-200 rounded-xl overflow-hidden">
+                {sentPhotos.map((photo) => {
+                  const selected = sentSelectedIds.has(photo.photo_id);
+                  return (
+                    <div
+                      key={photo.photo_id}
+                      onClick={() =>
+                        setSentSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          next.has(photo.photo_id) ? next.delete(photo.photo_id) : next.add(photo.photo_id);
+                          return next;
+                        })
+                      }
+                      className={`relative aspect-square bg-gray-100 cursor-pointer
+                        ${selected ? "ring-[3px] ring-inset ring-red-500" : ""}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={getPhotoUrl(photo.storage_path)}
+                        alt={photo.file_name}
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                      {/* 전송완료 오버레이 */}
+                      {!selected && (
+                        <div className="absolute inset-0 bg-black/20 flex items-end p-1">
+                          <span className="text-[9px] text-white/80 truncate">{photo.saved_name ?? photo.file_name}</span>
+                        </div>
+                      )}
+                      {selected && (
+                        <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
+                          <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 삭제 결과 메시지 */}
+              {driveDeleteMsg && (
+                <p className="text-xs text-center mt-2 text-[#8B95A1]">{driveDeleteMsg}</p>
+              )}
+
+              {/* 삭제 버튼 */}
+              {sentSelectedIds.size > 0 && (
+                <button
+                  onClick={() => setDriveDeleteConfirm(true)}
+                  disabled={driveDeleting}
+                  className="mt-3 w-full bg-red-50 text-red-500 border border-red-100 font-semibold py-3 rounded-2xl text-sm disabled:opacity-40 active:scale-95 transition"
+                >
+                  {driveDeleting
+                    ? "드라이브에서 삭제 중..."
+                    : `드라이브에서 삭제 (${sentSelectedIds.size}장)`}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <BottomBar
         selectedCount={selectedIds.size}
         hasNamedSelected={hasNamedSelected}
@@ -375,6 +513,35 @@ function SortInner() {
               </button>
               <button
                 onClick={handleDelete}
+                className="flex-1 bg-red-500 text-white font-semibold py-3 rounded-2xl text-sm active:scale-95 transition"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drive 삭제 확인 모달 */}
+      {driveDeleteConfirm && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-6">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+            <p className="text-xl text-center mb-1">🗑️</p>
+            <h3 className="text-base font-bold text-gray-900 text-center mb-1">
+              드라이브에서 삭제할까요?
+            </h3>
+            <p className="text-sm text-gray-500 text-center mb-5">
+              선택한 사진 {sentSelectedIds.size}장이 구글 드라이브 휴지통으로 이동됩니다.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDriveDeleteConfirm(false)}
+                className="flex-1 bg-gray-100 text-gray-700 font-semibold py-3 rounded-2xl text-sm active:scale-95 transition"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDriveDelete}
                 className="flex-1 bg-red-500 text-white font-semibold py-3 rounded-2xl text-sm active:scale-95 transition"
               >
                 삭제
@@ -515,7 +682,7 @@ function PhotoCell({
   return (
     <div
       className={`relative aspect-square bg-gray-100 overflow-hidden cursor-pointer select-none
-        ${selected ? "ring-[3px] ring-inset ring-[#191F28]" : ""}`}
+        ${selected ? "ring-[3px] ring-inset ring-[#3182F6]" : ""}`}
       onClick={handleClick}
       onMouseDown={startPress}
       onMouseUp={endPress}
@@ -533,8 +700,8 @@ function PhotoCell({
       />
 
       {selected && (
-        <div className="absolute inset-0 bg-[#191F28]/20">
-          <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#191F28] shadow flex items-center justify-center">
+        <div className="absolute inset-0 bg-[#3182F6]/20">
+          <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#3182F6] shadow flex items-center justify-center">
             <svg
               className="w-3 h-3 text-white"
               fill="none"
@@ -599,7 +766,7 @@ function BottomBar({
           <button
             onClick={onSendToDrive}
             disabled={busy}
-            className="w-full bg-[#191F28] text-white font-semibold py-3.5 rounded-2xl text-sm
+            className="w-full bg-[#3182F6] text-white font-semibold py-3.5 rounded-2xl text-sm
                        disabled:opacity-40 active:scale-95 transition"
           >
             {actionLoading === "drive"
@@ -620,7 +787,7 @@ function BottomBar({
           <button
             onClick={onOpenDrawer}
             disabled={inactive}
-            className="flex-1 bg-[#191F28] text-white font-semibold py-3.5 rounded-2xl text-sm
+            className="flex-1 bg-[#3182F6] text-white font-semibold py-3.5 rounded-2xl text-sm
                        disabled:opacity-40 active:scale-95 transition"
           >
             이름 지정하기

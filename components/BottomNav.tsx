@@ -44,7 +44,7 @@ export function BottomNav() {
               key={tab.href}
               href={tab.href}
               className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-[11px] font-medium transition-colors ${
-                active ? "text-[#191F28]" : "text-[#C2C8D0] hover:text-[#8B95A1]"
+                active ? "text-[#3182F6]" : "text-[#C2C8D0] hover:text-[#8B95A1]"
               }`}
             >
               {/* 아이콘 + 뱃지 래퍼 */}

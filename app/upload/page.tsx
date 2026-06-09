@@ -294,7 +294,7 @@ export default function UploadPage() {
           {isDone ? (
             <button
               onClick={() => router.push(`/sort?batch_id=${batchId}`)}
-              className="w-full bg-[#191F28] text-white font-semibold py-4 rounded-2xl
+              className="w-full bg-[#3182F6] text-white font-semibold py-4 rounded-2xl
                          active:scale-95 transition"
             >
               이름 정리하러 가기 →
@@ -303,7 +303,7 @@ export default function UploadPage() {
             <button
               onClick={handleUpload}
               disabled={phase !== "ready" || doneCount === 0 || !online}
-              className="w-full bg-[#191F28] text-white font-semibold py-4 rounded-2xl
+              className="w-full bg-[#3182F6] text-white font-semibold py-4 rounded-2xl
                          disabled:opacity-40 active:scale-95 transition"
             >
               {isUploading
@@ -380,7 +380,7 @@ function ProgressBar({ pct }: { pct: number }) {
   return (
     <div className="mt-2 h-1.5 rounded-full overflow-hidden bg-gray-200">
       <div
-        className="h-full rounded-full transition-all duration-300 bg-[#191F28]"
+        className="h-full rounded-full transition-all duration-300 bg-[#3182F6]"
         style={{ width: `${Math.min(pct, 100)}%` }}
       />
     </div>
