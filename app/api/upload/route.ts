@@ -203,3 +203,43 @@ export async function PATCH(req: NextRequest) {
     { status: 400 }
   );
 }
+
+// ─────────────────────────────────────────────────────────────
+// DELETE /api/upload — { photo_ids: string[] }
+// temp 상태 사진만 삭제 가능 (Storage + photo_dogs + photos)
+// ─────────────────────────────────────────────────────────────
+export async function DELETE(req: NextRequest) {
+  const { photo_ids } = await req.json();
+  if (!Array.isArray(photo_ids) || photo_ids.length === 0) {
+    return NextResponse.json({ error: "photo_ids 필요" }, { status: 400 });
+  }
+
+  const supabase = createServiceClient();
+
+  // temp 상태인 사진만 조회
+  const { data: photos, error: fetchErr } = await supabase
+    .from("photos")
+    .select("photo_id, storage_path, status")
+    .in("photo_id", photo_ids)
+    .eq("status", "temp");
+
+  if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 });
+  if (!photos || photos.length === 0) {
+    return NextResponse.json({ error: "삭제 가능한 사진이 없습니다 (temp 상태만 삭제 가능)" }, { status: 400 });
+  }
+
+  const ids = photos.map((p) => p.photo_id);
+
+  // 1. Storage 삭제
+  const storagePaths = photos.map((p) => p.storage_path);
+  await supabase.storage.from("dangchive").remove(storagePaths);
+
+  // 2. photo_dogs 삭제
+  await supabase.from("photo_dogs").delete().in("photo_id", ids);
+
+  // 3. photos 삭제
+  const { error: delErr } = await supabase.from("photos").delete().in("photo_id", ids);
+  if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
+
+  return NextResponse.json({ deleted: ids.length });
+}

@@ -42,7 +42,8 @@ function SortInner() {
   const [selectedIds,   setSelectedIds]   = useState<Set<string>>(new Set());
   const [drawerOpen,    setDrawerOpen]    = useState(false);
   const [actionLoading, setActionLoading] =
-    useState<"needs_name" | "naming" | "drive" | null>(null);
+    useState<"needs_name" | "naming" | "drive" | "delete" | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -165,26 +166,56 @@ function SortInner() {
     setActionLoading(null);
   }
 
-  async function handleAddDog(name: string): Promise<Dog | null> {
-    const res = await fetch("/api/dogs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dog_name: name.trim() }),
-    });
-    const data = await res.json();
-    if (!res.ok) return null;
-    setDogs((prev) =>
-      [...prev, data.dog].sort((a, b) =>
-        a.dog_name.localeCompare(b.dog_name, "ko")
-      )
+  // temp 사진 삭제
+  async function handleDelete() {
+    const tempIds = Array.from(selectedIds).filter(
+      (id) => photos.find((p) => p.photo_id === id)?.status === "temp"
     );
-    return data.dog;
+    if (!tempIds.length) return;
+    setDeleteConfirm(false);
+    setActionLoading("delete");
+    setError(null);
+    try {
+      const res = await fetch("/api/upload", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photo_ids: tempIds }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "삭제 실패");
+      }
+      setPhotos((prev) => prev.filter((p) => !tempIds.includes(p.photo_id)));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        tempIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    } catch (e: any) {
+      setError(e.message ?? "삭제 중 오류가 발생했습니다.");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  function handleDogApproved(dog: Dog) {
+    setDogs((prev) =>
+      prev.some((d) => d.dog_id === dog.dog_id)
+        ? prev
+        : [...prev, dog].sort((a, b) => a.dog_name.localeCompare(b.dog_name, "ko"))
+    );
   }
 
   const hasNamedSelected = photos.some(
     (p) => selectedIds.has(p.photo_id) && p.status === "named"
   );
+  const hasTempSelected = photos.some(
+    (p) => selectedIds.has(p.photo_id) && p.status === "temp"
+  );
   const allSelected = photos.length > 0 && selectedIds.size === photos.length;
+  const tempSelectedCount = Array.from(selectedIds).filter(
+    (id) => photos.find((p) => p.photo_id === id)?.status === "temp"
+  ).length;
 
   if (loading) return <PageSpinner />;
 
@@ -254,11 +285,44 @@ function SortInner() {
       <BottomBar
         selectedCount={selectedIds.size}
         hasNamedSelected={hasNamedSelected}
+        hasTempSelected={hasTempSelected}
+        tempSelectedCount={tempSelectedCount}
         actionLoading={actionLoading}
         onNeedsName={handleNeedsName}
         onOpenDrawer={() => setDrawerOpen(true)}
         onSendToDrive={handleSendToDrive}
+        onDelete={() => setDeleteConfirm(true)}
       />
+
+      {/* 삭제 확인 모달 */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-6">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+            <p className="text-xl text-center mb-1">🗑️</p>
+            <h3 className="text-base font-bold text-gray-900 text-center mb-1">
+              사진을 삭제할까요?
+            </h3>
+            <p className="text-sm text-gray-500 text-center mb-5">
+              이름이 지정되지 않은 사진 {tempSelectedCount}장이 영구 삭제됩니다.<br />
+              이 작업은 되돌릴 수 없어요.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDeleteConfirm(false)}
+                className="flex-1 bg-gray-100 text-gray-700 font-semibold py-3 rounded-2xl text-sm active:scale-95 transition"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 bg-red-500 text-white font-semibold py-3 rounded-2xl text-sm active:scale-95 transition"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <DogDrawer
         open={drawerOpen}
@@ -267,7 +331,7 @@ function SortInner() {
         busy={actionLoading === "naming"}
         onClose={() => setDrawerOpen(false)}
         onAssign={handleAssignDogs}
-        onAddDog={handleAddDog}
+        onDogApproved={handleDogApproved}
       />
 
     </main>
@@ -352,17 +416,23 @@ function PhotoCell({
 function BottomBar({
   selectedCount,
   hasNamedSelected,
+  hasTempSelected,
+  tempSelectedCount,
   actionLoading,
   onNeedsName,
   onOpenDrawer,
   onSendToDrive,
+  onDelete,
 }: {
   selectedCount: number;
   hasNamedSelected: boolean;
+  hasTempSelected: boolean;
+  tempSelectedCount: number;
   actionLoading: string | null;
   onNeedsName: () => void;
   onOpenDrawer: () => void;
   onSendToDrive: () => void;
+  onDelete: () => void;
 }) {
   const busy     = actionLoading !== null;
   const inactive = selectedCount === 0 || busy;
@@ -402,6 +472,19 @@ function BottomBar({
             이름 지정하기
           </button>
         </div>
+
+        {hasTempSelected && (
+          <button
+            onClick={onDelete}
+            disabled={busy}
+            className="w-full bg-red-50 text-red-500 font-medium py-3 rounded-2xl text-sm border border-red-100
+                       disabled:opacity-40 active:scale-95 transition"
+          >
+            {actionLoading === "delete"
+              ? "삭제 중..."
+              : `🗑️ 잘못 올린 사진 삭제 (${tempSelectedCount}장)`}
+          </button>
+        )}
 
       </div>
     </div>

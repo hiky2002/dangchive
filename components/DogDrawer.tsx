@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Dog } from "@/types";
 
 export type DogDrawerProps = {
@@ -10,7 +10,7 @@ export type DogDrawerProps = {
   busy: boolean;
   onClose: () => void;
   onAssign: (dogIds: string[], dogs: Dog[]) => void;
-  onAddDog: (name: string) => Promise<Dog | null>;
+  onDogApproved?: (dog: Dog) => void; // 승인된 아이를 부모 목록에 추가
 };
 
 export function DogDrawer({
@@ -20,13 +20,17 @@ export function DogDrawer({
   busy,
   onClose,
   onAssign,
-  onAddDog,
+  onDogApproved,
 }: DogDrawerProps) {
-  const [search,      setSearch]      = useState("");
-  const [newName,     setNewName]     = useState("");
-  const [pickedIds,   setPickedIds]   = useState<Set<string>>(new Set());
-  const [addingDog,   setAddingDog]   = useState(false);
-  const [addError,    setAddError]    = useState<string | null>(null);
+  const [search,       setSearch]       = useState("");
+  const [newName,      setNewName]      = useState("");
+  const [pickedIds,    setPickedIds]    = useState<Set<string>>(new Set());
+
+  // 요청 대기 상태
+  const [pendingName,  setPendingName]  = useState<string | null>(null);
+  const [addError,     setAddError]     = useState<string | null>(null);
+  const [requesting,   setRequesting]   = useState(false);
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -34,8 +38,35 @@ export function DogDrawer({
       setNewName("");
       setPickedIds(new Set());
       setAddError(null);
+      setPendingName(null);
+      setRequesting(false);
+    } else {
+      // 드로어 닫힐 때 폴링 중단
+      stopPolling();
     }
   }, [open]);
+
+  // 폴링: 승인 대기 중인 아이가 dogs 목록에 나타나면 자동 선택
+  useEffect(() => {
+    if (!pendingName) return;
+    const found = dogs.find(
+      (d) => d.dog_name.trim().toLowerCase() === pendingName.trim().toLowerCase()
+    );
+    if (found) {
+      stopPolling();
+      setPendingName(null);
+      setPickedIds((prev) => new Set([...prev, found.dog_id]));
+      if (onDogApproved) onDogApproved(found);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dogs, pendingName]);
+
+  function stopPolling() {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }
 
   const filtered = dogs.filter((d) =>
     d.dog_name.toLowerCase().includes(search.toLowerCase())
@@ -49,18 +80,49 @@ export function DogDrawer({
     });
   }
 
-  async function handleAdd() {
-    if (!newName.trim() || addingDog) return;
-    setAddingDog(true);
+  // 새 아이 추가 → 요청 제출 + 폴링 시작
+  async function handleRequestNewDog() {
+    if (!newName.trim() || requesting) return;
+    setRequesting(true);
     setAddError(null);
-    const dog = await onAddDog(newName.trim());
-    if (dog) {
+    try {
+      const res = await fetch("/api/dog-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "add",
+          requester: "봉사자",
+          requested_name: newName.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error("요청 실패");
+
+      setPendingName(newName.trim());
       setNewName("");
-      setPickedIds((prev) => new Set(Array.from(prev).concat(dog.dog_id)));
-    } else {
-      setAddError("추가에 실패했습니다. 이미 존재하는 이름일 수 있어요.");
+
+      // 3초마다 dogs 목록 갱신 (부모의 onDogApproved 콜백 + useEffect 연동)
+      pollRef.current = setInterval(async () => {
+        try {
+          const r    = await fetch("/api/dogs");
+          const data = await r.json();
+          const allDogs: Dog[] = data.dogs ?? [];
+          const found = allDogs.find(
+            (d) => d.dog_name.trim().toLowerCase() === newName.trim().toLowerCase()
+          );
+          if (found) {
+            stopPolling();
+            setPendingName(null);
+            setPickedIds((prev) => new Set([...prev, found.dog_id]));
+            if (onDogApproved) onDogApproved(found);
+          }
+        } catch { /* 무시 */ }
+      }, 3000);
+
+    } catch {
+      setAddError("요청에 실패했습니다. 다시 시도해주세요.");
+    } finally {
+      setRequesting(false);
     }
-    setAddingDog(false);
   }
 
   function handleConfirm() {
@@ -137,9 +199,7 @@ export function DogDrawer({
         <div className="flex-1 overflow-y-auto px-4 pb-2">
           {filtered.length === 0 ? (
             <p className="text-sm text-center text-gray-400 py-8">
-              {search
-                ? `"${search}"에 해당하는 아이가 없어요`
-                : "등록된 아이가 없어요. 아래에서 추가하세요."}
+              {search ? `"${search}"에 해당하는 아이가 없어요` : "등록된 아이가 없어요. 아래에서 추가를 요청하세요."}
             </p>
           ) : (
             <div className="flex flex-col gap-1 py-1">
@@ -174,30 +234,51 @@ export function DogDrawer({
           )}
         </div>
 
-        {/* 새 아이 추가 */}
+        {/* 새 아이 추가 요청 */}
         <div className="px-4 py-3 border-t border-gray-100 shrink-0">
-          <p className="text-xs font-medium text-gray-500 mb-2">+ 새 아이 추가</p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              placeholder="이름 입력 (예: 두부)"
-              maxLength={20}
-              className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm
-                         focus:outline-none focus:ring-2 focus:ring-orange-400"
-            />
-            <button
-              onClick={handleAdd}
-              disabled={!newName.trim() || addingDog}
-              className="px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl
-                         disabled:opacity-40 hover:bg-gray-700 active:scale-95 transition"
-            >
-              {addingDog ? "..." : "추가"}
-            </button>
-          </div>
-          {addError && <p className="text-xs text-red-500 mt-1.5">{addError}</p>}
+          {pendingName ? (
+            /* 승인 대기 중 */
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+              <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-amber-700">"{pendingName}" 승인 대기 중...</p>
+                <p className="text-xs text-amber-500 mt-0.5">관리자가 승인하면 자동으로 선택돼요</p>
+              </div>
+              <button
+                onClick={() => { stopPolling(); setPendingName(null); }}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                취소
+              </button>
+            </div>
+          ) : (
+            /* 요청 입력 */
+            <>
+              <p className="text-xs font-medium text-gray-500 mb-2">+ 새 아이 추가 요청</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleRequestNewDog()}
+                  placeholder="이름 입력 (예: 두부)"
+                  maxLength={20}
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm
+                             focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+                <button
+                  onClick={handleRequestNewDog}
+                  disabled={!newName.trim() || requesting}
+                  className="px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl
+                             disabled:opacity-40 hover:bg-gray-700 active:scale-95 transition"
+                >
+                  {requesting ? "..." : "요청"}
+                </button>
+              </div>
+              {addError && <p className="text-xs text-red-500 mt-1.5">{addError}</p>}
+              <p className="text-xs text-gray-400 mt-1.5">관리자 승인 후 자동으로 선택됩니다</p>
+            </>
+          )}
         </div>
 
         {/* 지정하기 버튼 */}

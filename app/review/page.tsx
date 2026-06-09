@@ -73,19 +73,13 @@ function ReviewInner() {
     load();
   }, []);
 
-  // 새 아이 추가 (DogDrawer → API → dogs 상태 갱신)
-  async function handleAddDog(name: string): Promise<Dog | null> {
-    const res = await fetch("/api/dogs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dog_name: name.trim() }),
-    });
-    const data = await res.json();
-    if (!res.ok) return null;
+  // 승인된 아이를 dogs 목록에 추가
+  function handleDogApproved(dog: Dog) {
     setDogs((prev) =>
-      [...prev, data.dog].sort((a, b) => a.dog_name.localeCompare(b.dog_name, "ko"))
+      prev.some((d) => d.dog_id === dog.dog_id)
+        ? prev
+        : [...prev, dog].sort((a, b) => a.dog_name.localeCompare(b.dog_name, "ko"))
     );
-    return data.dog;
   }
 
   // 배치 확정 완료 → 목록에서 제거
@@ -147,7 +141,7 @@ function ReviewInner() {
           dogs={dogs}
           onClose={() => setSelected(null)}
           onDone={() => handleBatchDone(selected.batch_id)}
-          onAddDog={handleAddDog}
+          onDogApproved={handleDogApproved}
         />
       )}
 
@@ -213,13 +207,13 @@ function BatchDetailModal({
   dogs,
   onClose,
   onDone,
-  onAddDog,
+  onDogApproved,
 }: {
   batch: BatchGroup;
   dogs: Dog[];
   onClose: () => void;
   onDone: () => void;
-  onAddDog: (name: string) => Promise<Dog | null>;
+  onDogApproved: (dog: Dog) => void;
 }) {
   const [pickedDogs, setPickedDogs] = useState<Dog[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -356,7 +350,7 @@ function BatchDetailModal({
         busy={false}
         onClose={() => setDrawerOpen(false)}
         onAssign={handleDrawerAssign}
-        onAddDog={onAddDog}
+        onDogApproved={onDogApproved}
       />
     </>
   );
