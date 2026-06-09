@@ -12,80 +12,36 @@ export async function GET(req: NextRequest) {
 
   const supabase = createServiceClient();
 
-  // ── 1. photos 기본 조회 (join 없는 bare 쿼리로 우선 확인)
-  let baseQuery = supabase
+  // photos + photo_dogs → dogs 를 한 번에 조회
+  // photo_dogs 내부 dogs join은 dog_id FK 하나뿐이라 모호성 없음
+  let query = supabase
     .from("photos")
     .select(
-      "photo_id, batch_id, dog_id, file_name, saved_name, upload_user, storage_path, status, drive_url, created_at"
+      "photo_id, batch_id, dog_id, file_name, saved_name, upload_user, storage_path, status, drive_url, created_at, photo_dogs(dog:dogs(dog_id, dog_name, drive_folder_id, created_at))"
     )
     .eq("status", status)
     .order("created_at", { ascending: true });
 
-  if (batchId)    baseQuery = baseQuery.eq("batch_id", batchId);
-  if (uploadUser) baseQuery = baseQuery.eq("upload_user", uploadUser);
+  if (batchId)    query = query.eq("batch_id", batchId);
+  if (uploadUser) query = query.eq("upload_user", uploadUser);
 
-  const { data: baseData, error: baseError } = await baseQuery;
+  const { data, error } = await query;
 
-  if (baseError) {
-    console.error("[GET /api/upload] photos query failed:", {
-      message: baseError.message,
-      code:    (baseError as any).code,
-      details: (baseError as any).details,
-      hint:    (baseError as any).hint,
+  if (error) {
+    console.error("[GET /api/upload] query failed:", {
+      message: error.message,
+      code:    (error as any).code,
     });
     return NextResponse.json(
-      { error: baseError.message, code: (baseError as any).code },
+      { error: error.message, code: (error as any).code },
       { status: 500 }
     );
   }
 
-  const rows     = baseData ?? [];
-  const photoIds = rows.map((p) => p.photo_id as string);
-
-  // ── 2. dogs 조인 (별도 조회)
-  let dogMap: Record<string, any> = {};
-  if (photoIds.length > 0) {
-    const { data: dogRows, error: dogError } = await supabase
-      .from("photos")
-      .select("photo_id, dog:dogs(dog_id, dog_name, drive_folder_id, created_at)")
-      .in("photo_id", photoIds);
-
-    if (dogError) {
-      console.error("[GET /api/upload] dog join failed:", dogError.message);
-    } else {
-      for (const r of dogRows ?? []) {
-        dogMap[r.photo_id] = r.dog ?? null;
-      }
-    }
-  }
-
-  // ── 3. photo_dogs 조회 (테이블 없으면 조용히 건너뜀)
-  let pdMap: Record<string, any[]> = {};
-  if (photoIds.length > 0) {
-    const { data: pdData, error: pdError } = await supabase
-      .from("photo_dogs")
-      .select("photo_id, dog:dogs(dog_id, dog_name, drive_folder_id, created_at)")
-      .in("photo_id", photoIds);
-
-    if (pdError) {
-      console.warn("[GET /api/upload] photo_dogs query skipped:", pdError.message);
-    } else {
-      for (const row of pdData ?? []) {
-        if (!pdMap[row.photo_id]) pdMap[row.photo_id] = [];
-        if (row.dog) pdMap[row.photo_id].push(row.dog);
-      }
-    }
-  }
-
-  // ── 4. 합성
-  const photos = rows.map((p) => {
-    const singleDog  = dogMap[p.photo_id] ?? null;
-    const multiDogs  = pdMap[p.photo_id]  ?? [];
-    return {
-      ...p,
-      dog:  singleDog,
-      dogs: multiDogs.length > 0 ? multiDogs : (singleDog ? [singleDog] : []),
-    };
+  const photos = (data ?? []).map((p: any) => {
+    const { photo_dogs: pdRows, ...rest } = p;
+    const dogs = (pdRows ?? []).map((pd: any) => pd.dog).filter(Boolean);
+    return { ...rest, dog: dogs[0] ?? null, dogs };
   });
 
   return NextResponse.json({ photos });

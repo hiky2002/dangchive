@@ -27,7 +27,7 @@ export default function HomePage() {
       <div className="text-center mb-10">
         <h1 className="text-3xl font-bold text-gray-900">🐾 댕카이브</h1>
         <p className="mt-2 text-gray-500 text-sm">
-          유기견 사진 아카이브 서비스
+          LCKD 아이들 사진 아카이브 서비스
         </p>
       </div>
 

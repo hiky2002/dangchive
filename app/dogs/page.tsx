@@ -24,6 +24,10 @@ export default function DogsPage() {
   const [addLoading,  setAddLoading]  = useState(false);
   const [addError,    setAddError]    = useState<string | null>(null);
 
+  // 드라이브 동기화
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncResult,  setSyncResult]  = useState<string | null>(null);
+
   const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -94,6 +98,26 @@ export default function DogsPage() {
     }
   }
 
+  async function handleSync() {
+    if (syncLoading) return;
+    setSyncLoading(true);
+    setSyncResult(null);
+    try {
+      const res  = await fetch("/api/drive/sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "동기화 실패");
+      const parts: string[] = [];
+      if (data.added > 0) parts.push(`${data.added}마리 새로 등록: ${(data.dogs as any[]).map((d: any) => d.dog_name).join(", ")}`);
+      if (data.updated > 0) parts.push(`${data.updated}마리 폴더 연결됨`);
+      setSyncResult(parts.length > 0 ? parts.join(" / ") : "새로 추가하거나 연결할 아이가 없습니다.");
+      if (data.added > 0 || data.updated > 0) await load();
+    } catch (e: any) {
+      setSyncResult(`오류: ${e.message}`);
+    } finally {
+      setSyncLoading(false);
+    }
+  }
+
   async function handleAdd() {
     if (!newName.trim() || addLoading) return;
     setAddLoading(true);
@@ -129,7 +153,21 @@ export default function DogsPage() {
         <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
           {dogs.length}마리
         </span>
+        <button
+          onClick={handleSync}
+          disabled={syncLoading}
+          className="ml-auto text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100
+                     px-3 py-1.5 rounded-full disabled:opacity-40 active:scale-95 transition whitespace-nowrap"
+        >
+          {syncLoading ? "불러오는 중..." : "드라이브에서 불러오기"}
+        </button>
       </div>
+
+      {syncResult && (
+        <p className="mx-4 mt-3 text-sm text-blue-700 bg-blue-50 px-3 py-2 rounded-xl">
+          {syncResult}
+        </p>
+      )}
 
       {error && (
         <p className="mx-4 mt-3 text-sm text-red-500 bg-red-50 px-3 py-2 rounded-xl">

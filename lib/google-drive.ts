@@ -47,6 +47,20 @@ export async function ensureDogFolder(dogName: string): Promise<string> {
   return folder.data.id!;
 }
 
+export async function listRootFolders(): Promise<{ id: string; name: string }[]> {
+  const drive        = createDriveClient();
+  const rootFolderId = getRootFolderId();
+
+  const res = await drive.files.list({
+    q: `'${rootFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+    fields: "files(id, name)",
+    pageSize: 1000,
+    orderBy: "name",
+  });
+
+  return (res.data.files ?? []) as { id: string; name: string }[];
+}
+
 export async function countFilesInFolder(folderId: string): Promise<number> {
   const drive = createDriveClient();
   const res   = await drive.files.list({

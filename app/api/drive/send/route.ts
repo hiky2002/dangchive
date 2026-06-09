@@ -17,9 +17,10 @@ export async function POST(req: NextRequest) {
   const supabase = createServiceClient();
 
   // 사진 + 아이 정보 일괄 조회 (photo_dogs 다대다)
+  // 드라이브 업로드에 필요한 컬럼만 select
   const { data: photos, error: fetchErr } = await supabase
     .from("photos")
-    .select("*, photo_dogs(dog_id, dog:dogs(dog_id, dog_name, drive_folder_id))")
+    .select("photo_id, storage_path, created_at, photo_dogs(dog:dogs(dog_id, dog_name, drive_folder_id))")
     .in("photo_id", photoIds);
 
   if (fetchErr || !photos) {

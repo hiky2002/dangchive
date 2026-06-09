@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import { ensureDogFolder } from "@/lib/google-drive";
 
 // GET /api/dogs
 export async function GET() {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("dogs")
-    .select("*")
+    .select("dog_id, dog_name, drive_folder_id, created_at")
     .order("dog_name", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -30,7 +31,19 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ dog: data }, { status: 201 });
+  // 드라이브 폴더 생성 후 drive_folder_id 저장 (실패해도 dog 등록은 유지)
+  try {
+    const folderId = await ensureDogFolder(data.dog_name);
+    const { data: updated } = await supabase
+      .from("dogs")
+      .update({ drive_folder_id: folderId })
+      .eq("dog_id", data.dog_id)
+      .select()
+      .single();
+    return NextResponse.json({ dog: updated ?? data }, { status: 201 });
+  } catch {
+    return NextResponse.json({ dog: data }, { status: 201 });
+  }
 }
 
 // DELETE /api/dogs — { dog_id }

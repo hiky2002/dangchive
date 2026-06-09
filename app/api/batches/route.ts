@@ -11,54 +11,45 @@ export async function GET(req: NextRequest) {
   const status = req.nextUrl.searchParams.get("status") ?? "needs_name";
   const supabase = createServiceClient();
 
-  // 해당 status 사진 전체 조회
-  const { data: photos, error: photosErr } = await supabase
+  // photos + batch 를 한 번에 조회 (2쿼리 → 1쿼리)
+  // 필요한 컬럼만 select, batch 정보는 FK embed로 인라인 처리
+  const { data: photos, error } = await supabase
     .from("photos")
-    .select("*")
+    .select(
+      "photo_id, batch_id, storage_path, file_name, status, created_at, batch:batches(batch_id, upload_user, status, created_at)"
+    )
     .eq("status", status)
     .order("created_at", { ascending: true });
 
-  if (photosErr) {
-    return NextResponse.json({ error: photosErr.message }, { status: 500 });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
   if (!photos || photos.length === 0) {
     return NextResponse.json({ batches: [] });
   }
 
-  // 고유 batch_id 추출
-  const batchIds = Array.from(new Set(photos.map((p) => p.batch_id)));
-
-  // 배치 레코드 조회
-  const { data: batchRecords, error: batchErr } = await supabase
-    .from("batches")
-    .select("*")
-    .in("batch_id", batchIds)
-    .order("created_at", { ascending: false });
-
-  if (batchErr) {
-    return NextResponse.json({ error: batchErr.message }, { status: 500 });
+  // batch_id별 그루핑 (Map으로 O(n))
+  const batchMap = new Map<string, any>();
+  for (const photo of photos as any[]) {
+    if (!batchMap.has(photo.batch_id)) {
+      batchMap.set(photo.batch_id, {
+        ...photo.batch,
+        photos:         [],
+        photo_count:    0,
+        thumbnail_path: null,
+      });
+    }
+    const entry = batchMap.get(photo.batch_id);
+    const { batch: _, ...photoFields } = photo;
+    entry.photos.push(photoFields);
+    entry.photo_count++;
+    if (!entry.thumbnail_path) entry.thumbnail_path = photo.storage_path;
   }
 
-  // photo를 batch_id별로 그루핑
-  const byBatch = new Map<string, typeof photos>();
-  for (const photo of photos) {
-    const arr = byBatch.get(photo.batch_id) ?? [];
-    arr.push(photo);
-    byBatch.set(photo.batch_id, arr);
-  }
-
-  // 최종 응답: 배치 + 사진 목록 + 썸네일
-  const batches = (batchRecords ?? [])
-    .filter((b) => byBatch.has(b.batch_id))
-    .map((b) => {
-      const batchPhotos = byBatch.get(b.batch_id) ?? [];
-      return {
-        ...b,
-        photos:         batchPhotos,
-        photo_count:    batchPhotos.length,
-        thumbnail_path: batchPhotos[0]?.storage_path ?? null,
-      };
-    });
+  // 배치 생성일 내림차순
+  const batches = Array.from(batchMap.values()).sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
 
   return NextResponse.json({ batches });
 }
