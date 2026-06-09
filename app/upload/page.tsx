@@ -74,23 +74,33 @@ export default function UploadPage() {
       compressState: "pending",
       uploadState: "idle",
     }));
-    setItems(list);
+    setItems([...list]);
 
-    for (let i = 0; i < list.length; i++) {
-      list[i] = { ...list[i], compressState: "compressing" };
+    // 3개씩 병렬 압축
+    const COMPRESS_CONCURRENCY = 3;
+    let compressDone = 0;
+    for (let i = 0; i < list.length; i += COMPRESS_CONCURRENCY) {
+      const chunk = list.slice(i, i + COMPRESS_CONCURRENCY);
+      chunk.forEach((item) => { item.compressState = "compressing"; });
       setItems([...list]);
 
-      try {
-        const compressed = await imageCompression(list[i].original, COMPRESS_OPTIONS);
-        const previewUrl  = URL.createObjectURL(compressed);
-        previewUrlsRef.current.push(previewUrl);
-        list[i] = { ...list[i], compressed, previewUrl, compressState: "done" };
-      } catch {
-        list[i] = { ...list[i], compressState: "error" };
-      }
-
-      setItems([...list]);
-      setCompressProg({ done: i + 1, total: list.length });
+      await Promise.all(
+        chunk.map(async (item) => {
+          try {
+            const compressed = await imageCompression(item.original, COMPRESS_OPTIONS);
+            const previewUrl  = URL.createObjectURL(compressed);
+            previewUrlsRef.current.push(previewUrl);
+            item.compressed    = compressed;
+            item.previewUrl    = previewUrl;
+            item.compressState = "done";
+          } catch {
+            item.compressState = "error";
+          }
+          compressDone++;
+          setCompressProg({ done: compressDone, total: list.length });
+          setItems([...list]);
+        })
+      );
     }
 
     setPhase("ready");
@@ -108,32 +118,52 @@ export default function UploadPage() {
 
     let localBatchId: string | null = null;
     let failCount = 0;
+    let uploadDone = 0;
 
-    for (let i = 0; i < ready.length; i++) {
-      const item = ready[i];
-      const fd = new FormData();
-      fd.append("file",        item.compressed!);
-      fd.append("file_name",   item.original.name);
-      fd.append("upload_user", nickname.trim());
-      if (localBatchId) fd.append("batch_id", localBatchId);
+    // 첫 장으로 배치 ID 먼저 생성
+    const firstItem = ready[0];
+    const firstFd = new FormData();
+    firstFd.append("file",        firstItem.compressed!);
+    firstFd.append("file_name",   firstItem.original.name);
+    firstFd.append("upload_user", nickname.trim());
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: firstFd });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      localBatchId = data.batch_id;
+      setBatchId(data.batch_id);
+      setItems((prev) => prev.map((p) => p.id === firstItem.id ? { ...p, uploadState: "done" } : p));
+    } catch {
+      failCount++;
+      setItems((prev) => prev.map((p) => p.id === firstItem.id ? { ...p, uploadState: "error" } : p));
+    }
+    uploadDone++;
+    setUploadProg({ done: uploadDone, total: ready.length });
 
-      try {
-        const res = await fetch("/api/upload", { method: "POST", body: fd });
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        if (!localBatchId) { localBatchId = data.batch_id; setBatchId(data.batch_id); }
-
-        setItems((prev) =>
-          prev.map((p) => (p.id === item.id ? { ...p, uploadState: "done" } : p))
-        );
-      } catch {
-        failCount++;
-        setItems((prev) =>
-          prev.map((p) => (p.id === item.id ? { ...p, uploadState: "error" } : p))
-        );
-      }
-
-      setUploadProg({ done: i + 1, total: ready.length });
+    // 나머지 4개씩 병렬 업로드
+    const UPLOAD_CONCURRENCY = 4;
+    const rest = ready.slice(1);
+    for (let i = 0; i < rest.length; i += UPLOAD_CONCURRENCY) {
+      const chunk = rest.slice(i, i + UPLOAD_CONCURRENCY);
+      await Promise.all(
+        chunk.map(async (item) => {
+          const fd = new FormData();
+          fd.append("file",        item.compressed!);
+          fd.append("file_name",   item.original.name);
+          fd.append("upload_user", nickname.trim());
+          if (localBatchId) fd.append("batch_id", localBatchId);
+          try {
+            const res = await fetch("/api/upload", { method: "POST", body: fd });
+            if (!res.ok) throw new Error();
+            setItems((prev) => prev.map((p) => p.id === item.id ? { ...p, uploadState: "done" } : p));
+          } catch {
+            failCount++;
+            setItems((prev) => prev.map((p) => p.id === item.id ? { ...p, uploadState: "error" } : p));
+          }
+          uploadDone++;
+          setUploadProg({ done: uploadDone, total: ready.length });
+        })
+      );
     }
 
     if (failCount === ready.length) {

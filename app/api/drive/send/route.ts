@@ -72,110 +72,92 @@ export async function POST(req: NextRequest) {
   let failCount = 0;
   const results: { photo_id: string; saved_name?: string; drive_url?: string; error?: string }[] = [];
 
-  for (const photo of photos) {
-    const dogs: DogInfo[] = dogsByPhoto.get(photo.photo_id) ?? [];
+  // 사진 3장씩 병렬 처리
+  const CONCURRENCY = 3;
+  for (let i = 0; i < photos.length; i += CONCURRENCY) {
+    const chunk = photos.slice(i, i + CONCURRENCY);
 
-    console.log(`\n[drive/send] --- photo_id=${photo.photo_id} ---`);
-    console.log(`  dogs: ${dogs.map(d => d.dog_name).join(", ") || "❌ 미지정"}`);
+    const chunkResults = await Promise.all(
+      chunk.map(async (photo) => {
+        const dogs: DogInfo[] = dogsByPhoto.get(photo.photo_id) ?? [];
 
-    if (dogs.length === 0) {
-      await supabase.from("photos").update({ status: "failed" }).eq("photo_id", photo.photo_id);
-      failCount++;
-      results.push({ photo_id: photo.photo_id, error: "dog_id 미지정" });
-      continue;
-    }
+        console.log(`[drive/send] photo_id=${photo.photo_id} dogs: ${dogs.map(d => d.dog_name).join(", ") || "❌ 미지정"}`);
 
-    try {
-      // ── 1. Supabase Storage 다운로드 (한 번만) ─────────────────
-      console.log(`  [1] Storage 다운로드: ${photo.storage_path}`);
-      const { data: fileData, error: dlErr } = await supabase.storage
-        .from("dangchive")
-        .download(photo.storage_path);
-
-      if (dlErr || !fileData) {
-        throw new Error(`Storage 다운로드 실패: ${dlErr?.message ?? "fileData null"}`);
-      }
-
-      const buffer = Buffer.from(await fileData.arrayBuffer());
-      console.log(`  [1] 다운로드 완료: ${buffer.byteLength} bytes`);
-
-      // ── 2. 파일명 생성 (모든 아이 이름 언더스코어 연결) ─────────
-      const date      = new Date(photo.created_at);
-      const yy        = String(date.getFullYear()).slice(2);
-      const mm        = String(date.getMonth() + 1).padStart(2, "0");
-      const dd        = String(date.getDate()).padStart(2, "0");
-      const dogNames  = dogs.map(d => d.dog_name).join("_");
-
-      // ── 3. 각 아이 폴더에 업로드 ───────────────────────────────
-      let firstDriveUrl: string | null = null;
-
-      for (const dog of dogs) {
-        let cached = dogCache.get(dog.dog_id);
-
-        if (!cached) {
-          let folderId = dog.drive_folder_id ?? null;
-
-          if (!folderId) {
-            console.log(`  [3] 폴더 없음 → ensureDogFolder("${dog.dog_name}") 호출`);
-            folderId = await ensureDogFolder(dog.dog_name);
-            await supabase.from("dogs").update({ drive_folder_id: folderId }).eq("dog_id", dog.dog_id);
-          }
-
-          const existingCount = await countFilesInFolder(folderId);
-          cached = { folderId, nextSeq: existingCount + 1 };
-          dogCache.set(dog.dog_id, cached);
+        if (dogs.length === 0) {
+          await supabase.from("photos").update({ status: "failed" }).eq("photo_id", photo.photo_id);
+          return { ok: false, photo_id: photo.photo_id, error: "dog_id 미지정" };
         }
 
-        const { folderId, nextSeq } = cached;
-        const seqStr    = String(nextSeq).padStart(3, "0");
-        const savedName = `${yy}${mm}${dd}_${dogNames}_${seqStr}.jpg`;
-        cached.nextSeq++;
+        try {
+          // ── 1. Supabase Storage 다운로드
+          const { data: fileData, error: dlErr } = await supabase.storage
+            .from("dangchive")
+            .download(photo.storage_path);
+          if (dlErr || !fileData) throw new Error(`Storage 다운로드 실패: ${dlErr?.message ?? "fileData null"}`);
+          const buffer = Buffer.from(await fileData.arrayBuffer());
 
-        console.log(`  [3] Drive 업로드: folder=${folderId}, name=${savedName}`);
-        const stream = Readable.from(buffer);
-        const driveRes = await drive.files.create({
-          requestBody: { name: savedName, parents: [folderId] },
-          media:       { mimeType: "image/jpeg", body: stream },
-          fields:      "id, webViewLink",
-          supportsAllDrives: true,
-        });
-        if (!firstDriveUrl) firstDriveUrl = driveRes.data.webViewLink ?? null;
-        console.log(`  [3] 업로드 완료 → ${driveRes.data.id}`);
-      }
+          // ── 2. 파일명 생성
+          const date     = new Date(photo.created_at);
+          const yy       = String(date.getFullYear()).slice(2);
+          const mm       = String(date.getMonth() + 1).padStart(2, "0");
+          const dd       = String(date.getDate()).padStart(2, "0");
+          const dogNames = dogs.map(d => d.dog_name).join("_");
 
-      // ── 4. DB 업데이트 ─────────────────────────────────────────
-      const dogNames0 = dogs.map(d => d.dog_name).join("_");
-      const date2     = new Date(photo.created_at);
-      const yy2       = String(date2.getFullYear()).slice(2);
-      const mm2       = String(date2.getMonth() + 1).padStart(2, "0");
-      const dd2       = String(date2.getDate()).padStart(2, "0");
-      const finalName = `${yy2}${mm2}${dd2}_${dogNames0}_001.jpg`;
+          // ── 3. 각 아이 폴더에 업로드
+          let firstDriveUrl: string | null = null;
+          for (const dog of dogs) {
+            let cached = dogCache.get(dog.dog_id);
+            if (!cached) {
+              let folderId = dog.drive_folder_id ?? null;
+              if (!folderId) {
+                folderId = await ensureDogFolder(dog.dog_name);
+                await supabase.from("dogs").update({ drive_folder_id: folderId }).eq("dog_id", dog.dog_id);
+              }
+              const existingCount = await countFilesInFolder(folderId);
+              cached = { folderId, nextSeq: existingCount + 1 };
+              dogCache.set(dog.dog_id, cached);
+            }
+            const { folderId, nextSeq } = cached;
+            const seqStr    = String(nextSeq).padStart(3, "0");
+            const savedName = `${yy}${mm}${dd}_${dogNames}_${seqStr}.jpg`;
+            cached.nextSeq++;
 
-      await supabase
-        .from("photos")
-        .update({ status: "sent", saved_name: finalName, drive_url: firstDriveUrl })
-        .eq("photo_id", photo.photo_id);
+            const stream = Readable.from(buffer);
+            const driveRes = await drive.files.create({
+              requestBody: { name: savedName, parents: [folderId] },
+              media:       { mimeType: "image/jpeg", body: stream },
+              fields:      "id, webViewLink",
+              supportsAllDrives: true,
+            });
+            if (!firstDriveUrl) firstDriveUrl = driveRes.data.webViewLink ?? null;
+            console.log(`[drive/send] ✅ ${photo.photo_id} → ${driveRes.data.id}`);
+          }
 
-      successCount++;
-      results.push({ photo_id: photo.photo_id, saved_name: finalName, drive_url: firstDriveUrl ?? undefined });
+          // ── 4. DB 업데이트
+          const finalName = `${yy}${mm}${dd}_${dogNames}_001.jpg`;
+          await supabase
+            .from("photos")
+            .update({ status: "sent", saved_name: finalName, drive_url: firstDriveUrl })
+            .eq("photo_id", photo.photo_id);
 
-    } catch (err) {
-      const message    = err instanceof Error ? err.message : String(err);
-      const httpStatus = (err as any)?.response?.status;
-      const apiErrors  = (err as any)?.response?.data?.error;
+          return { ok: true, photo_id: photo.photo_id, saved_name: finalName, drive_url: firstDriveUrl ?? undefined };
 
-      console.error(`  ❌ 실패 - photo_id=${photo.photo_id}`);
-      console.error(`     message:    ${message}`);
-      if (httpStatus)  console.error(`     HTTP:       ${httpStatus}`);
-      if (apiErrors)   console.error(`     API error:  ${JSON.stringify(apiErrors)}`);
+        } catch (err) {
+          const message   = err instanceof Error ? err.message : String(err);
+          const apiErrors = (err as any)?.response?.data?.error;
+          console.error(`[drive/send] ❌ ${photo.photo_id}: ${message}`);
+          await supabase.from("photos").update({ status: "failed" }).eq("photo_id", photo.photo_id);
+          return { ok: false, photo_id: photo.photo_id, error: (apiErrors as any)?.message ?? message };
+        }
+      })
+    );
 
-      await supabase.from("photos").update({ status: "failed" }).eq("photo_id", photo.photo_id);
-
-      failCount++;
-      results.push({ photo_id: photo.photo_id, error: (apiErrors as any)?.message ?? message });
+    for (const r of chunkResults) {
+      if (r.ok) { successCount++; results.push({ photo_id: r.photo_id, saved_name: r.saved_name, drive_url: r.drive_url }); }
+      else       { failCount++;    results.push({ photo_id: r.photo_id, error: r.error }); }
     }
   }
 
-  console.log(`\n[drive/send] ✅ 완료: 성공 ${successCount}장 / 실패 ${failCount}장`);
+  console.log(`[drive/send] ✅ 완료: 성공 ${successCount}장 / 실패 ${failCount}장`);
   return NextResponse.json({ success_count: successCount, fail_count: failCount, results });
 }
