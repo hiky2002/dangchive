@@ -59,6 +59,18 @@ export default function HomePage() {
           </Link>
         ))}
 
+        {/* 이용 가이드 */}
+        <a
+          href="https://app.notion.com/p/37aaca4b788480d1ae5bfc47edad5ea0?source=copy_link"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3.5 active:scale-[0.98] transition"
+        >
+          <div className="w-9 h-9 rounded-xl bg-[#F0F4FF] flex items-center justify-center text-lg shrink-0">📖</div>
+          <span className="flex-1 text-left font-medium text-[#8B95A1] text-sm">이용 가이드</span>
+          <span className="text-[#C2C8D0] font-bold text-lg">›</span>
+        </a>
+
         {/* 관리자 로그인 */}
         <AdminHomeSection />
 
