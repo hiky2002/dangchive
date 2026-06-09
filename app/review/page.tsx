@@ -200,7 +200,7 @@ function BatchCard({
 }
 
 // ─────────────────────────────────────────────────────────────
-// BatchDetailModal (풀스크린 오버레이)
+// BatchDetailModal (풀스크린 오버레이) — 사진별 개별 이름 지정
 // ─────────────────────────────────────────────────────────────
 function BatchDetailModal({
   batch,
@@ -215,48 +215,59 @@ function BatchDetailModal({
   onDone: () => void;
   onDogApproved: (dog: Dog) => void;
 }) {
-  const [pickedDogs, setPickedDogs] = useState<Dog[]>([]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sending,    setSending]    = useState(false);
-  const [sendError,  setSendError]  = useState<string | null>(null);
+  // 사진별 지정된 아이: { photo_id → Dog[] }
+  const [assignments, setAssignments] = useState<Record<string, Dog[]>>({});
+  const [currentIdx,  setCurrentIdx]  = useState(0);
+  const [drawerOpen,  setDrawerOpen]  = useState(false);
+  const [sending,     setSending]     = useState(false);
+  const [sendError,   setSendError]   = useState<string | null>(null);
 
-  // 드로어 확정 → 선택된 모든 아이 저장
+  const currentPhoto      = batch.photos[currentIdx];
+  const currentAssignment = currentPhoto ? (assignments[currentPhoto.photo_id] ?? []) : [];
+  const assignedCount     = Object.keys(assignments).length;
+
+  // 드로어 확정 → 현재 사진에만 적용
   function handleDrawerAssign(dogIds: string[], dogsArr: Dog[]) {
-    if (dogsArr.length === 0) return;
-    setPickedDogs(dogsArr);
+    if (!currentPhoto || dogsArr.length === 0) return;
+    setAssignments((prev) => ({ ...prev, [currentPhoto.photo_id]: dogsArr }));
     setDrawerOpen(false);
+    // 다음 미지정 사진으로 자동 이동
+    const nextIdx = batch.photos.findIndex(
+      (p, i) => i > currentIdx && !assignments[p.photo_id]
+    );
+    if (nextIdx !== -1) setCurrentIdx(nextIdx);
   }
 
-  // 승인 대기 중 "지금은 넘기기" → 드로어만 닫고 다른 배치 처리 가능
-  function handleSkip() {
-    setDrawerOpen(false);
-  }
-
-  // 확정 + 드라이브 전송
+  // 확정 + 드라이브 전송 — 지정된 사진만
   async function handleConfirm() {
-    if (pickedDogs.length === 0 || sending) return;
+    if (assignedCount === 0 || sending) return;
     setSending(true);
     setSendError(null);
 
+    const assignedPhotos = batch.photos.filter((p) => assignments[p.photo_id]);
+
     try {
-      // 1. 모든 사진에 dogIds 일괄 적용 (응답 오류 체크)
+      // 1. 사진별 이름 patch
       const patchResults = await Promise.all(
-        batch.photos.map((photo) =>
+        assignedPhotos.map((photo) =>
           fetch("/api/upload", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ photoId: photo.photo_id, dogIds: pickedDogs.map(d => d.dog_id) }),
-          }).then(r => ({ photoId: photo.photo_id, ok: r.ok }))
+            body: JSON.stringify({
+              photoId: photo.photo_id,
+              dogIds:  assignments[photo.photo_id].map((d) => d.dog_id),
+            }),
+          }).then((r) => ({ photoId: photo.photo_id, ok: r.ok }))
         )
       );
-      const failedPatches = patchResults.filter(r => !r.ok);
+      const failedPatches = patchResults.filter((r) => !r.ok);
       if (failedPatches.length > 0) {
-        throw new Error(`아이 지정 저장 실패 (${failedPatches.length}장). 다시 시도해 주세요.`);
+        throw new Error(`이름 지정 저장 실패 (${failedPatches.length}장). 다시 시도해 주세요.`);
       }
 
-      // 2. 사진별 드라이브 전송 (순차 — 드라이브 API 부하 고려)
+      // 2. 사진별 드라이브 전송
       let failCount = 0;
-      for (const photo of batch.photos) {
+      for (const photo of assignedPhotos) {
         const res = await fetch("/api/drive/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -266,12 +277,11 @@ function BatchDetailModal({
       }
 
       if (failCount > 0) {
-        setSendError(`${failCount}장 드라이브 전송에 실패했습니다. 나머지는 완료되었어요.`);
-        // 일부 실패해도 목록에서 제거 (재시도는 sent 상태 제외 후 별도 처리)
+        setSendError(`${failCount}장 드라이브 전송에 실패했습니다. 나머지는 완료됐어요.`);
       }
       onDone();
-    } catch {
-      setSendError("처리 중 오류가 발생했습니다. 다시 시도해 주세요.");
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : "처리 중 오류가 발생했습니다.");
       setSending(false);
     }
   }
@@ -286,7 +296,7 @@ function BatchDetailModal({
           <div>
             <p className="font-bold text-white">{batch.upload_user}</p>
             <p className="text-xs text-gray-400">
-              {batch.photo_count}장 · {relativeTime(batch.created_at)} · {batch.batch_id}
+              {batch.photo_count}장 · {relativeTime(batch.created_at)}
             </p>
           </div>
           <button
@@ -299,7 +309,12 @@ function BatchDetailModal({
 
         {/* 사진 슬라이더 */}
         <div className="w-full h-64 shrink-0">
-          <PhotoSwiper photos={batch.photos} />
+          <PhotoSwiper
+            photos={batch.photos}
+            currentIdx={currentIdx}
+            onIndexChange={setCurrentIdx}
+            assignments={assignments}
+          />
         </div>
 
         {/* 하단 액션 */}
@@ -309,74 +324,104 @@ function BatchDetailModal({
             <p className="text-xs text-red-400 mb-3 text-center">{sendError}</p>
           )}
 
-          {/* 선택된 아이 미리보기 */}
-          {pickedDogs.length > 0 && (
+          {/* 진행 상황 */}
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs text-gray-400">
+              {assignedCount > 0
+                ? `${assignedCount} / ${batch.photo_count}장 지정됨`
+                : "사진을 넘기며 각 사진에 이름을 지정하세요"}
+            </p>
+            {currentAssignment.length > 0 && (
+              <button
+                onClick={() => {
+                  setAssignments((prev) => {
+                    const next = { ...prev };
+                    delete next[currentPhoto.photo_id];
+                    return next;
+                  });
+                }}
+                className="text-xs text-gray-400 hover:text-white transition"
+              >
+                지정 취소
+              </button>
+            )}
+          </div>
+
+          {/* 현재 사진 지정 상태 */}
+          {currentAssignment.length > 0 ? (
             <div className="flex items-center gap-3 mb-3 px-4 py-3 bg-white/10 rounded-2xl">
               <span className="text-xl">🐾</span>
-              <span className="text-white font-semibold">
-                {pickedDogs.map(d => d.dog_name).join(", ")}
+              <span className="text-white font-semibold text-sm">
+                {currentAssignment.map((d) => d.dog_name).join(", ")}
               </span>
               <button
-                onClick={() => setPickedDogs([])}
-                className="ml-auto text-xs text-gray-400 hover:text-white transition"
+                onClick={() => setDrawerOpen(true)}
+                className="ml-auto text-xs text-[#3182F6] font-medium"
               >
                 변경
               </button>
             </div>
+          ) : (
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="w-full bg-white text-gray-900 font-semibold py-3.5 rounded-2xl mb-3
+                         active:scale-95 transition"
+            >
+              어떤 아이예요? 이름 지정하기
+            </button>
           )}
 
-          {pickedDogs.length > 0 ? (
-            /* 확정 버튼 */
+          {/* 확정 + 드라이브 전송 */}
+          {assignedCount > 0 && (
             <button
               onClick={handleConfirm}
               disabled={sending}
-              className="w-full bg-[#3182F6] text-white font-semibold py-4 rounded-2xl
+              className="w-full bg-[#3182F6] text-white font-semibold py-3.5 rounded-2xl
                          disabled:opacity-50 active:scale-95 transition"
             >
               {sending
                 ? "드라이브에 전송 중..."
-                : `${pickedDogs.map(d => `"${d.dog_name}"`).join(", ")}로 확정 + 드라이브 전송`}
-            </button>
-          ) : (
-            /* 이름 지정 버튼 */
-            <button
-              onClick={() => setDrawerOpen(true)}
-              className="w-full bg-white text-gray-900 font-semibold py-4 rounded-2xl
-                         active:scale-95 transition"
-            >
-              어떤 아이예요? 이름 지정하기
+                : `${assignedCount}장 확정 + 드라이브 전송`}
             </button>
           )}
         </div>
 
       </div>
 
-      {/* DogDrawer — z-index는 컴포넌트 내부에서 z-[50]/z-[60] 사용 */}
       <DogDrawer
         open={drawerOpen}
         dogs={dogs}
-        subtitle={`배치 전체 ${batch.photo_count}장에 적용됩니다`}
+        subtitle={`현재 사진 1장에 적용됩니다`}
         busy={false}
         onClose={() => setDrawerOpen(false)}
         onAssign={handleDrawerAssign}
         onDogApproved={onDogApproved}
-        onSkip={handleSkip}
+        onSkip={() => setDrawerOpen(false)}
       />
     </>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-// PhotoSwiper (CSS 스크롤 스냅 기반 슬라이더)
+// PhotoSwiper — 사진별 지정 상태 표시 포함
 // ─────────────────────────────────────────────────────────────
-function PhotoSwiper({ photos }: { photos: Photo[] }) {
-  const [idx,    setIdx]    = useState(0);
-  const scrollRef           = useRef<HTMLDivElement>(null);
+function PhotoSwiper({
+  photos,
+  currentIdx,
+  onIndexChange,
+  assignments,
+}: {
+  photos: Photo[];
+  currentIdx: number;
+  onIndexChange: (idx: number) => void;
+  assignments: Record<string, Dog[]>;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   function onScroll() {
     if (!scrollRef.current) return;
     const { scrollLeft, clientWidth } = scrollRef.current;
-    if (clientWidth > 0) setIdx(Math.round(scrollLeft / clientWidth));
+    if (clientWidth > 0) onIndexChange(Math.round(scrollLeft / clientWidth));
   }
 
   return (
@@ -388,42 +433,55 @@ function PhotoSwiper({ photos }: { photos: Photo[] }) {
         onScroll={onScroll}
         className="flex h-full overflow-x-auto snap-x snap-mandatory scrollbar-hide"
       >
-        {photos.map((photo) => (
-          <div
-            key={photo.photo_id}
-            className="flex-shrink-0 w-full h-full snap-start flex items-center justify-center bg-black"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={getPhotoUrl(photo.storage_path)}
-              alt={photo.file_name}
-              className="max-w-full max-h-full object-contain"
-              loading="lazy"
-            />
-          </div>
-        ))}
+        {photos.map((photo) => {
+          const assigned = assignments[photo.photo_id] ?? [];
+          return (
+            <div
+              key={photo.photo_id}
+              className="flex-shrink-0 w-full h-full snap-start flex items-center justify-center bg-black relative"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={getPhotoUrl(photo.storage_path)}
+                alt={photo.file_name}
+                className="max-w-full max-h-full object-contain"
+                loading="lazy"
+              />
+              {/* 이름 지정 여부 배지 */}
+              {assigned.length > 0 && (
+                <div className="absolute top-2 left-2 bg-[#3182F6] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                  🐾 {assigned.map((d) => d.dog_name).join(", ")}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* 카운터 */}
       <div className="absolute top-3 right-3 bg-black/60 text-white text-xs font-medium px-2.5 py-1 rounded-full">
-        {idx + 1} / {photos.length}
+        {currentIdx + 1} / {photos.length}
       </div>
 
       {/* 하단 파일명 */}
       <div className="absolute bottom-2 left-0 right-0 flex justify-center">
         <span className="text-[11px] text-white/60 px-2 py-0.5 rounded bg-black/30 truncate max-w-[60%]">
-          {photos[idx]?.file_name}
+          {photos[currentIdx]?.file_name}
         </span>
       </div>
 
-      {/* 점 인디케이터 (10장 이하일 때만) */}
+      {/* 점 인디케이터 (10장 이하) */}
       {photos.length > 1 && photos.length <= 10 && (
         <div className="absolute bottom-8 inset-x-0 flex justify-center gap-1.5 pointer-events-none">
-          {photos.map((_, i) => (
+          {photos.map((p, i) => (
             <div
               key={i}
               className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                i === idx ? "bg-white" : "bg-white/30"
+                assignments[p.photo_id]
+                  ? "bg-[#3182F6]"
+                  : i === currentIdx
+                    ? "bg-white"
+                    : "bg-white/30"
               }`}
             />
           ))}
