@@ -1,19 +1,19 @@
 import { google } from "googleapis";
 
-function getOAuthClient() {
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_OAUTH_REDIRECT_URI ?? "http://localhost:4000"
-  );
-  oauth2Client.setCredentials({
-    refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+function getServiceAccountAuth() {
+  const email      = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "";
+  const rawKey     = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? "";
+  // Vercel 환경변수에서 \n이 리터럴로 저장되는 경우 실제 줄바꿈으로 변환
+  const privateKey = rawKey.replace(/\\n/g, "\n");
+
+  return new google.auth.GoogleAuth({
+    credentials: { client_email: email, private_key: privateKey },
+    scopes: ["https://www.googleapis.com/auth/drive"],
   });
-  return oauth2Client;
 }
 
 export function createDriveClient() {
-  const auth = getOAuthClient();
+  const auth = getServiceAccountAuth();
   return google.drive({ version: "v3", auth });
 }
 
