@@ -16,19 +16,44 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient();
 
-  // 사진 + 아이 정보 일괄 조회 (photo_dogs 다대다)
-  // 드라이브 업로드에 필요한 컬럼만 select
+  // ── photos 조회 ──────────────────────────────────────────────
   const { data: photos, error: fetchErr } = await supabase
     .from("photos")
-    .select("photo_id, storage_path, created_at, photo_dogs(dog:dogs(dog_id, dog_name, drive_folder_id))")
+    .select("photo_id, storage_path, created_at")
     .in("photo_id", photoIds);
 
   if (fetchErr || !photos) {
-    console.error("[drive/send] DB 조회 실패:", fetchErr?.message);
+    console.error("[drive/send] photos 조회 실패:", fetchErr?.message);
     return NextResponse.json({ error: "사진 조회 실패" }, { status: 500 });
   }
 
-  console.log(`[drive/send] DB 조회 성공: ${photos.length}장`);
+  // ── photo_dogs → dogs 별도 조회 (다대다 명시적 join) ─────────
+  const { data: pdRows, error: pdErr } = await supabase
+    .from("photo_dogs")
+    .select("photo_id, dog_id, dogs(dog_id, dog_name, drive_folder_id)")
+    .in("photo_id", photoIds);
+
+  if (pdErr) {
+    console.error("[drive/send] photo_dogs 조회 실패:", pdErr.message);
+    return NextResponse.json({ error: "photo_dogs 조회 실패" }, { status: 500 });
+  }
+
+  console.log(`[drive/send] DB 조회 성공: photos=${photos.length}장, photo_dogs=${pdRows?.length ?? 0}건`);
+  console.log("[drive/send] photo_dogs raw:", JSON.stringify(pdRows?.slice(0, 5)));
+
+  type DogInfo = { dog_id: string; dog_name: string; drive_folder_id: string | null };
+
+  // photo_id → DogInfo[] 맵 구성
+  const dogsByPhoto = new Map<string, DogInfo[]>();
+  for (const row of pdRows ?? []) {
+    const dog = (row as any).dogs as DogInfo | null;
+    if (!dog) continue;
+    const arr = dogsByPhoto.get(row.photo_id) ?? [];
+    arr.push(dog);
+    dogsByPhoto.set(row.photo_id, arr);
+  }
+
+  console.log(`[drive/send] 아이 매핑: ${dogsByPhoto.size}장에 아이 지정됨`);
 
   console.log("[drive/send] 환경변수 체크:", {
     clientId:      process.env.GOOGLE_CLIENT_ID ? "✅" : "❌ 없음",
@@ -47,12 +72,8 @@ export async function POST(req: NextRequest) {
   let failCount = 0;
   const results: { photo_id: string; saved_name?: string; drive_url?: string; error?: string }[] = [];
 
-  type DogInfo = { dog_id: string; dog_name: string; drive_folder_id: string | null };
-
   for (const photo of photos) {
-    const dogs: DogInfo[] = ((photo.photo_dogs ?? []) as any[])
-      .map((pd: any) => pd.dog)
-      .filter(Boolean);
+    const dogs: DogInfo[] = dogsByPhoto.get(photo.photo_id) ?? [];
 
     console.log(`\n[drive/send] --- photo_id=${photo.photo_id} ---`);
     console.log(`  dogs: ${dogs.map(d => d.dog_name).join(", ") || "❌ 미지정"}`);
