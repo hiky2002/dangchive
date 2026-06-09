@@ -120,15 +120,17 @@ function SortInner() {
     setActionLoading("naming");
     setError(null);
     try {
-      await Promise.all(
+      const results = await Promise.all(
         Array.from(selectedIds).map((photoId) =>
           fetch("/api/upload", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ photoId, dogIds }),
-          })
+          }).then(r => ({ photoId, ok: r.ok }))
         )
       );
+      const failedCount = results.filter(r => !r.ok).length;
+      if (failedCount > 0) throw new Error(`${failedCount}장 이름 지정 저장에 실패했습니다`);
       setPhotos((prev) =>
         prev.map((p) =>
           selectedIds.has(p.photo_id)
@@ -138,8 +140,8 @@ function SortInner() {
       );
       clearSelect();
       setDrawerOpen(false);
-    } catch {
-      setError("이름 지정에 실패했습니다.");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "이름 지정에 실패했습니다.");
     } finally {
       setActionLoading(null);
     }

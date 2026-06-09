@@ -239,16 +239,20 @@ function BatchDetailModal({
     setSendError(null);
 
     try {
-      // 1. 모든 사진에 dogIds 일괄 적용
-      await Promise.all(
+      // 1. 모든 사진에 dogIds 일괄 적용 (응답 오류 체크)
+      const patchResults = await Promise.all(
         batch.photos.map((photo) =>
           fetch("/api/upload", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ photoId: photo.photo_id, dogIds: pickedDogs.map(d => d.dog_id) }),
-          })
+          }).then(r => ({ photoId: photo.photo_id, ok: r.ok }))
         )
       );
+      const failedPatches = patchResults.filter(r => !r.ok);
+      if (failedPatches.length > 0) {
+        throw new Error(`아이 지정 저장 실패 (${failedPatches.length}장). 다시 시도해 주세요.`);
+      }
 
       // 2. 사진별 드라이브 전송 (순차 — 드라이브 API 부하 고려)
       let failCount = 0;

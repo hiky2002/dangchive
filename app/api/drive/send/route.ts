@@ -83,8 +83,9 @@ export async function POST(req: NextRequest) {
         console.log(`[drive/send] photo_id=${photo.photo_id} dogs: ${dogs.map(d => d.dog_name).join(", ") || "❌ 미지정"}`);
 
         if (dogs.length === 0) {
-          await supabase.from("photos").update({ status: "failed" }).eq("photo_id", photo.photo_id);
-          return { ok: false, photo_id: photo.photo_id, error: "dog_id 미지정" };
+          // 아이 미지정 → needs_name으로 되돌려 이름 확인 페이지에서 재처리
+          await supabase.from("photos").update({ status: "needs_name" }).eq("photo_id", photo.photo_id);
+          return { ok: false, photo_id: photo.photo_id, error: "아이 미지정 — 이름 확인 페이지에서 다시 지정해주세요" };
         }
 
         try {

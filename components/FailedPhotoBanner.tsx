@@ -35,10 +35,13 @@ export function FailedPhotoBanner() {
         body:    JSON.stringify({ photo_ids: photos.map((p) => p.photo_id) }),
       });
       const data = await res.json();
-      if (data.fail_count === 0) {
+      if (data.success_count > 0 && data.fail_count === 0) {
         setRetryMsg(`✅ ${data.success_count}장 전송 완료!`);
+      } else if (data.success_count > 0) {
+        setRetryMsg(`${data.success_count}장 성공 / ${data.fail_count}장 이름 확인 페이지로 이동됨`);
       } else {
-        setRetryMsg(`${data.success_count}장 성공, ${data.fail_count}장 실패`);
+        // 모두 아이 미지정 → needs_name으로 바뀌었으므로 이름 확인 페이지에서 처리
+        setRetryMsg("아이 이름이 없는 사진은 이름 확인 페이지에서 다시 지정해 주세요 →");
       }
     } catch {
       setRetryMsg("전송 중 오류가 발생했습니다.");
