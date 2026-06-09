@@ -4,7 +4,7 @@ function getOAuthClient() {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    "http://localhost:4000"
+    process.env.GOOGLE_OAUTH_REDIRECT_URI ?? "http://localhost:4000"
   );
   oauth2Client.setCredentials({
     refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
