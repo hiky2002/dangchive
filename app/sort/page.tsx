@@ -7,7 +7,7 @@ import type { Dog, Photo } from "@/types";
 import { DogDrawer }          from "@/components/DogDrawer";
 import { FailedPhotoBanner }  from "@/components/FailedPhotoBanner";
 
-const SESSION_BATCH_KEY = "dangchive_batch_id";
+const LS_BATCH_KEY = "dangchive_my_batch_id";
 
 function getPhotoUrl(storagePath: string) {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/dangchive/${storagePath}`;
@@ -31,9 +31,15 @@ function PageSpinner({ text = "불러오는 중..." }: { text?: string }) {
 
 function SortInner() {
   const params  = useSearchParams();
-  const batchId =
-    params.get("batch_id") ??
-    (typeof window !== "undefined" ? sessionStorage.getItem(SESSION_BATCH_KEY) : null);
+  const batchId = (() => {
+    const fromUrl = params.get("batch_id");
+    if (fromUrl) {
+      // URL에 batch_id가 있으면 localStorage에도 저장 (새로고침 대비)
+      if (typeof window !== "undefined") localStorage.setItem(LS_BATCH_KEY, fromUrl);
+      return fromUrl;
+    }
+    return typeof window !== "undefined" ? localStorage.getItem(LS_BATCH_KEY) : null;
+  })();
 
   const [photos,        setPhotos]        = useState<Photo[]>([]);
   const [dogs,          setDogs]          = useState<Dog[]>([]);
@@ -216,6 +222,31 @@ function SortInner() {
   const tempSelectedCount = Array.from(selectedIds).filter(
     (id) => photos.find((p) => p.photo_id === id)?.status === "temp"
   ).length;
+
+  // batch_id 없이 접근하면 업로드 안내 표시
+  if (!batchId) {
+    return (
+      <main className="max-w-md mx-auto px-4 py-10 text-center">
+        <div className="flex items-center gap-2.5 mb-8">
+          <Link href="/" className="text-gray-400 hover:text-gray-700 text-xl leading-none">
+            ←
+          </Link>
+          <h1 className="text-base font-bold text-gray-900">사진 정리</h1>
+        </div>
+        <p className="text-5xl mb-4">📭</p>
+        <p className="font-semibold text-gray-700 mb-2">업로드한 사진이 없어요</p>
+        <p className="text-sm text-gray-400 mb-6">
+          먼저 사진을 올리면 여기서 아이 이름을 지정할 수 있어요.
+        </p>
+        <Link
+          href="/upload"
+          className="inline-block bg-orange-500 text-white font-semibold px-6 py-3 rounded-2xl text-sm active:scale-95 transition"
+        >
+          📸 사진 올리러 가기
+        </Link>
+      </main>
+    );
+  }
 
   if (loading) return <PageSpinner />;
 

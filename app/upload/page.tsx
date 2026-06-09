@@ -170,6 +170,10 @@ export default function UploadPage() {
       setError("모든 사진 업로드에 실패했습니다. 다시 시도해 주세요.");
       setPhase("ready");
     } else {
+      // 내 배치 ID를 localStorage에 저장해 사진 정리 페이지에서 재사용
+      if (localBatchId) {
+        localStorage.setItem("dangchive_my_batch_id", localBatchId);
+      }
       setPhase("done");
     }
   }
