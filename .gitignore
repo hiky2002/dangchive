@@ -35,5 +35,17 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local scripts
+# local scripts & dev utilities
 get-token.mjs
+
+# unused template assets
+app/fonts/
+
+# IDE / local tool settings
+.claude/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
