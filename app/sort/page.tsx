@@ -69,20 +69,19 @@ function SortInner() {
           if (batchId) p.set("batch_id", batchId);
           return p.toString();
         };
-        const [r1, r2, r3, r4] = await Promise.all([
+        const [r1, r2, r3] = await Promise.all([
           fetch(`/api/upload?${qs("temp")}`),
           fetch(`/api/upload?${qs("named")}`),
           fetch("/api/dogs"),
-          fetch(`/api/upload?${qs("sent")}`),
         ]);
         if (!r1.ok || !r2.ok) {
           const errBody = await (!r1.ok ? r1 : r2).json().catch(() => ({}));
           throw new Error(errBody.error ?? "사진 조회 API 오류");
         }
-        const [d1, d2, d3, d4] = await Promise.all([r1.json(), r2.json(), r3.json(), r4.json()]);
+        const [d1, d2, d3] = await Promise.all([r1.json(), r2.json(), r3.json()]);
         setPhotos([...(d1.photos ?? []), ...(d2.photos ?? [])]);
         setDogs(d3.dogs ?? []);
-        setSentPhotos(d4.photos ?? []);
+        // 전송완료 사진은 진입 시 로드하지 않음 — 현재 세션에서 보낸 것만 표시
       } catch {
         setError("데이터를 불러오지 못했습니다.");
       } finally {
