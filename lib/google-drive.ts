@@ -67,7 +67,6 @@ export async function ensureDogFolder(dogName: string): Promise<string> {
       },
       fields: "id",
       supportsAllDrives: true,
-      ...(driveId ? { driveId } as any : {}),
     });
 
     console.log(`[ensureDogFolder] 폴더 생성 완료: id="${folder.data.id}"`);
