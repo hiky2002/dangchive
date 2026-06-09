@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminHomeSection } from "@/components/AdminHomeSection";
+import { FeedbackButton }   from "@/components/FeedbackButton";
 
 const tabs = [
   {
@@ -62,6 +63,9 @@ export default function HomePage() {
             <span className="ml-auto text-[#C2C8D0] text-xl">›</span>
           </Link>
         ))}
+
+        {/* 의견 보내기 */}
+        <FeedbackButton />
       </div>
 
     </main>
