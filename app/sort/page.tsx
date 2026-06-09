@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Dog, Photo } from "@/types";
@@ -50,6 +50,7 @@ function SortInner() {
   const [actionLoading, setActionLoading] =
     useState<"needs_name" | "naming" | "drive" | "delete" | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [previewPhoto,  setPreviewPhoto]  = useState<Photo | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -333,6 +334,7 @@ function SortInner() {
               photo={photo}
               selected={selectedIds.has(photo.photo_id)}
               onToggle={() => toggle(photo.photo_id)}
+              onLongPress={() => setPreviewPhoto(photo)}
             />
           ))}
         </div>
@@ -391,7 +393,74 @@ function SortInner() {
         onSkip={handleSkipToNeedsName}
       />
 
+      {/* 사진 크게 보기 모달 */}
+      {previewPhoto && (
+        <PhotoPreviewModal
+          photo={previewPhoto}
+          onClose={() => setPreviewPhoto(null)}
+        />
+      )}
+
     </main>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// PhotoPreviewModal
+// ─────────────────────────────────────────────────────────────
+function PhotoPreviewModal({ photo, onClose }: { photo: Photo; onClose: () => void }) {
+  const dogLabel =
+    (photo.dogs?.length ?? 0) > 0
+      ? photo.dogs!.map((d) => d.dog_name).join(", ")
+      : photo.dog?.dog_name ?? null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] bg-black flex flex-col"
+      onClick={onClose}
+    >
+      {/* 닫기 버튼 */}
+      <div className="flex justify-between items-center px-4 pt-4 pb-2 shrink-0">
+        <p className="text-white/60 text-xs truncate max-w-[70%]">{photo.file_name}</p>
+        <button
+          onClick={onClose}
+          className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 text-white text-lg"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* 사진 */}
+      <div className="flex-1 flex items-center justify-center px-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={getPhotoUrl(photo.storage_path)}
+          alt={photo.file_name}
+          className="max-w-full max-h-full object-contain rounded-xl"
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+
+      {/* 하단 정보 */}
+      <div className="shrink-0 px-4 pt-2 pb-8 flex items-center gap-2">
+        {dogLabel && (
+          <span className="text-sm font-medium text-white bg-white/15 px-3 py-1.5 rounded-full">
+            🐾 {dogLabel}
+          </span>
+        )}
+        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+          photo.status === "named"      ? "bg-green-500 text-white" :
+          photo.status === "sent"       ? "bg-blue-500 text-white"  :
+          photo.status === "needs_name" ? "bg-amber-500 text-white" :
+          "bg-gray-500 text-white"
+        }`}>
+          {photo.status === "named"      ? "이름지정" :
+           photo.status === "sent"       ? "전송완료" :
+           photo.status === "needs_name" ? "확인필요" :
+           photo.status === "temp"       ? "미지정"   : photo.status}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -410,10 +479,12 @@ function PhotoCell({
   photo,
   selected,
   onToggle,
+  onLongPress,
 }: {
   photo: Photo;
   selected: boolean;
   onToggle: () => void;
+  onLongPress: () => void;
 }) {
   const badge = STATUS_BADGE[photo.status];
   const dogLabel =
@@ -421,11 +492,35 @@ function PhotoCell({
       ? photo.dogs!.map((d) => d.dog_name).join(", ")
       : photo.dog?.dog_name ?? null;
 
+  // 꾹 누르기 — 500ms 이상 누르면 미리보기
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+
+  function startPress() {
+    didLongPress.current = false;
+    timerRef.current = setTimeout(() => {
+      didLongPress.current = true;
+      onLongPress();
+    }, 500);
+  }
+  function endPress() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }
+  function handleClick() {
+    if (!didLongPress.current) onToggle();
+  }
+
   return (
     <div
       className={`relative aspect-square bg-gray-100 overflow-hidden cursor-pointer select-none
         ${selected ? "ring-[3px] ring-inset ring-blue-500" : ""}`}
-      onClick={onToggle}
+      onClick={handleClick}
+      onMouseDown={startPress}
+      onMouseUp={endPress}
+      onMouseLeave={endPress}
+      onTouchStart={startPress}
+      onTouchEnd={endPress}
+      onTouchCancel={endPress}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
