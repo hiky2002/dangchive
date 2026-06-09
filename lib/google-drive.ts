@@ -55,19 +55,31 @@ export async function ensureDogFolder(dogName: string): Promise<string> {
     return res.data.files[0].id!;
   }
 
-  console.log(`[ensureDogFolder] 폴더 생성 시도: "${dogName}" in "${rootFolderId}"`);
-  const folder = await drive.files.create({
-    requestBody: {
-      name: dogName,
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [rootFolderId],
-    },
-    fields: "id",
-    supportsAllDrives: true,
-  });
+  const driveId = getSharedDriveId();
+  console.log(`[ensureDogFolder] 폴더 생성 시도: "${dogName}" in "${rootFolderId}", driveId="${driveId ?? "없음"}"`);
 
-  console.log(`[ensureDogFolder] 폴더 생성 완료: id="${folder.data.id}"`);
-  return folder.data.id!;
+  try {
+    const folder = await drive.files.create({
+      requestBody: {
+        name: dogName,
+        mimeType: "application/vnd.google-apps.folder",
+        parents: [rootFolderId],
+      },
+      fields: "id",
+      supportsAllDrives: true,
+      ...(driveId ? { driveId } as any : {}),
+    });
+
+    console.log(`[ensureDogFolder] 폴더 생성 완료: id="${folder.data.id}"`);
+    return folder.data.id!;
+  } catch (err: any) {
+    const status  = err?.response?.status;
+    const message = err?.response?.data?.error?.message ?? err?.message;
+    const errors  = err?.response?.data?.error?.errors;
+    console.error(`[ensureDogFolder] 폴더 생성 실패 HTTP ${status}: ${message}`);
+    if (errors) console.error("[ensureDogFolder] errors:", JSON.stringify(errors));
+    throw err;
+  }
 }
 
 export async function listRootFolders(): Promise<{ id: string; name: string }[]> {
