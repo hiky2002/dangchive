@@ -220,19 +220,28 @@ function findSimilarDogs(requestedName: string, dogs: Dog[]): Dog[] {
 }
 
 function PendingRequests({ adminKey, dogs, onApproved }: { adminKey: string; dogs: Dog[]; onApproved: () => void }) {
-  const [requests, setRequests] = useState<DogRequest[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [acting,   setActing]   = useState<string | null>(null);
+  const [requests,   setRequests]   = useState<DogRequest[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [acting,     setActing]     = useState<string | null>(null);
 
-  useEffect(() => { loadRequests(); }, []); // eslint-disable-line
+  // 마운트 시 + 5초마다 자동 갱신
+  useEffect(() => {
+    loadRequests();
+    const timer = setInterval(loadRequests, 5000);
+    return () => clearInterval(timer);
+  }, [adminKey]); // eslint-disable-line
 
-  async function loadRequests() {
+  async function loadRequests(manual = false) {
+    if (manual) setRefreshing(true);
     try {
       const res  = await fetch("/api/dog-requests?status=pending", { headers: { "x-admin-key": adminKey } });
+      if (!res.ok) return;
       const data = await res.json();
       setRequests(data.requests ?? []);
     } finally {
       setLoading(false);
+      if (manual) setRefreshing(false);
     }
   }
 
@@ -257,9 +266,19 @@ function PendingRequests({ adminKey, dogs, onApproved }: { adminKey: string; dog
 
   return (
     <div className="mx-4 mt-4">
-      <p className="text-xs font-semibold text-amber-600 mb-2">
-        📋 대기 중인 요청 {requests.length > 0 ? `(${requests.length}건)` : ""}
-      </p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-semibold text-amber-600">
+          📋 대기 중인 요청 {requests.length > 0 ? `(${requests.length}건)` : ""}
+        </p>
+        <button
+          onClick={() => loadRequests(true)}
+          disabled={refreshing}
+          className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 disabled:opacity-40 transition"
+        >
+          <span className={refreshing ? "animate-spin inline-block" : ""}>↻</span>
+          {refreshing ? "확인 중..." : "새로고침"}
+        </button>
+      </div>
       {requests.length === 0 ? (
         <div className="px-4 py-3 bg-gray-50 rounded-2xl">
           <p className="text-xs text-gray-400">대기 중인 요청이 없습니다.</p>
