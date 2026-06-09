@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 
+// 항상 최신 데이터를 반환 (캐시 비활성화)
+export const dynamic = "force-dynamic";
+
 // GET /api/dog-requests/count — 누구나 접근 가능, pending 건수만 반환
 export async function GET() {
   const supabase = createServiceClient();

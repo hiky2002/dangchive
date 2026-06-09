@@ -19,7 +19,27 @@ export function AdminHomeSection() {
       setIsAdmin(true);
       fetchPendingCount(key);
     }
-  }, []);
+
+    // 페이지가 다시 포커스/visible될 때 카운트 재조회 (아이 관리 탭에서 돌아왔을 때 등)
+    function handleVisibility() {
+      if (document.visibilityState === "visible") {
+        const k = sessionStorage.getItem(ADMIN_KEY);
+        if (k) fetchPendingCount(k);
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    // 30초마다 자동 갱신
+    const interval = setInterval(() => {
+      const k = sessionStorage.getItem(ADMIN_KEY);
+      if (k) fetchPendingCount(k);
+    }, 30_000);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      clearInterval(interval);
+    };
+  }, []); // eslint-disable-line
 
   async function fetchPendingCount(key?: string) {
     try {
