@@ -23,6 +23,7 @@ export default function DogsPage() {
   const [error,     setError]     = useState<string | null>(null);
   const [adminKey,  setAdminKey]  = useState<string | null>(null);
   const [showLogin, setShowLogin] = useState(false);
+  const [dogSearch, setDogSearch] = useState("");
 
   useEffect(() => {
     const stored = sessionStorage.getItem(ADMIN_KEY);
@@ -99,6 +100,20 @@ export default function DogsPage() {
       {/* 봉사자: 아이 추가 요청 */}
       {!isAdmin && <UserAddRequest />}
 
+      {/* 검색창 */}
+      {!loading && dogs.length > 0 && (
+        <div className="mx-4 mt-4">
+          <input
+            type="search"
+            value={dogSearch}
+            onChange={(e) => setDogSearch(e.target.value)}
+            placeholder="이름으로 검색 (예: 콩이)"
+            className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-sm
+                       focus:outline-none focus:ring-2 focus:ring-[#3182F6]"
+          />
+        </div>
+      )}
+
       {/* 아이 목록 */}
       {loading ? (
         <p className="text-center text-gray-400 text-sm mt-10">불러오는 중...</p>
@@ -107,15 +122,24 @@ export default function DogsPage() {
           <p className="text-4xl mb-3">🐾</p>
           <p className="text-sm">등록된 아이가 없습니다.</p>
         </div>
-      ) : (
-        <div className="mx-4 mt-4 flex flex-col gap-2">
-          {dogs.map((dog) =>
-            isAdmin
-              ? <AdminDogCard key={dog.dog_id} dog={dog} adminKey={adminKey!} onUpdated={load} />
-              : <UserDogCard  key={dog.dog_id} dog={dog} />
-          )}
-        </div>
-      )}
+      ) : (() => {
+        const filtered = dogs.filter((d) =>
+          d.dog_name.toLowerCase().includes(dogSearch.toLowerCase())
+        );
+        return (
+          <div className="mx-4 mt-3 flex flex-col gap-2">
+            {filtered.length === 0 ? (
+              <p className="text-center text-sm text-gray-400 py-6">
+                &ldquo;{dogSearch}&rdquo;에 해당하는 아이가 없어요
+              </p>
+            ) : filtered.map((dog) =>
+              isAdmin
+                ? <AdminDogCard key={dog.dog_id} dog={dog} adminKey={adminKey!} onUpdated={load} />
+                : <UserDogCard  key={dog.dog_id} dog={dog} />
+            )}
+          </div>
+        );
+      })()}
 
       {/* 관리자 로그인 모달 */}
       {showLogin && (

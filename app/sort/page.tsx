@@ -165,6 +165,7 @@ function SortInner() {
     setActionLoading("drive");
     setError(null);
     let fail = 0;
+    const justSent: typeof photos = [];
     for (const photo of targets) {
       try {
         const res = await fetch("/api/drive/send", {
@@ -173,12 +174,16 @@ function SortInner() {
           body: JSON.stringify({ photoId: photo.photo_id }),
         });
         if (!res.ok) throw new Error();
-        setPhotos((prev) =>
-          prev.map((p) => (p.photo_id === photo.photo_id ? { ...p, status: "sent" } : p))
-        );
+        justSent.push({ ...photo, status: "sent" });
+        setPhotos((prev) => prev.filter((p) => p.photo_id !== photo.photo_id));
       } catch {
         fail++;
       }
+    }
+    // 전송 성공한 사진을 sentPhotos에 즉시 추가하고 섹션 자동 펼치기
+    if (justSent.length > 0) {
+      setSentPhotos((prev) => [...justSent, ...prev]);
+      setSentOpen(true);
     }
     if (fail) setError(`${fail}장 전송에 실패했습니다.`);
     clearSelect();
@@ -787,7 +792,7 @@ function BottomBar({
           <button
             onClick={onOpenDrawer}
             disabled={inactive}
-            className="flex-1 bg-[#191F28] text-white font-semibold py-3.5 rounded-2xl text-sm
+            className="flex-1 bg-white border-2 border-[#3182F6] text-[#3182F6] font-semibold py-3.5 rounded-2xl text-sm
                        disabled:opacity-40 active:scale-95 transition"
           >
             🐾 이름 지정하기

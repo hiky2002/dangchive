@@ -330,7 +330,7 @@ function BatchDetailModal({
             <button
               onClick={handleConfirm}
               disabled={sending}
-              className="w-full bg-orange-500 text-white font-semibold py-4 rounded-2xl
+              className="w-full bg-[#3182F6] text-white font-semibold py-4 rounded-2xl
                          disabled:opacity-50 active:scale-95 transition"
             >
               {sending
