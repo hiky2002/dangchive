@@ -1,14 +1,43 @@
-# 댕카이브 (Dangchive)
+# 🐾 댕카이브 (Dangchive)
 
-유기견 보호소 봉사자가 현장에서 찍은 사진을 아이별로 정리하고 구글 드라이브로 자동 전송하는 모바일 웹앱입니다.
+LCKD 유기견 보호소 봉사자가 현장에서 찍은 사진을 아이별로 정리하고 구글 드라이브로 자동 전송하는 모바일 웹앱입니다.
+
+🌐 **접속 주소**: [[앱 주소 비공개]](https://[앱 주소 비공개])
+
+---
 
 ## 주요 기능
 
-- **사진 업로드** — 봉사자가 현장에서 사진을 선택해 자동 압축 후 업로드 (최대 50장)
-- **아이별 사진 정리** — 업로드한 사진에 강아지 이름을 지정해 분류 (한 장에 여러 아이 지정 가능)
-- **구글 드라이브 자동 전송** — 아이별 폴더를 자동 생성하고 날짜+이름 형식으로 사진 전송
-- **드라이브 동기화** — 드라이브의 기존 폴더 목록을 불러와 DB와 자동 동기화
-- **공유 드라이브 지원** — Google Workspace 공유 드라이브(Shared Drive) 연동 가능
+- **📸 사진 업로드** — 최대 50장, 자동 압축 후 업로드
+- **🗂️ 아이별 사진 정리** — 사진에 강아지 이름 지정 (한 장에 여러 아이 지정 가능)
+- **🚀 구글 드라이브 자동 전송** — 아이별 폴더 자동 생성, `YYMMDD_아이이름_001.jpg` 형식으로 저장
+- **✅ 이름 확인** — 이름을 모르는 사진을 다른 봉사자가 도움을 줄 수 있는 페이지
+- **➕ 아이 추가/이름 변경 요청** — 봉사자가 요청 → 관리자 승인 후 반영
+- **🔄 드라이브 동기화** — 드라이브 기존 폴더와 DB 자동 동기화
+- **💬 의견 보내기** — 앱 내 피드백 전송 (이메일 알림)
+- **🔑 관리자 모드** — 요청 승인/거절, 아이 직접 추가/수정/삭제
+
+---
+
+## 사용 방법
+
+자세한 이용 가이드는 [`댕카이브_이용방법_노션.md`](댕카이브_이용방법_노션.md)를 참고하세요.
+
+### ⚡ 빠른 요약
+
+| 기능 | 누르는 순서 |
+|------|------------|
+| 📸 사진 업로드 | 홈 `사진 업로드` 또는 하단 `올리기` → 사진 선택 → `올리기 (N장)` |
+| ✅ 이름 지정 | `정리하기` → 사진 선택 → `이름 지정하기` → 아이 선택 → `지정하기` |
+| ➕ 새 아이 추가 요청 | `이름 지정하기` 열기 → 하단 이름 입력 → `요청` |
+| ✏️ 이름 변경 요청 | `아이 관리` → 해당 아이 옆 `이름 변경 요청` → 새 이름 입력 → `요청` |
+| 🚀 드라이브 전송 | 전송 준비 완료 섹션 사진 선택 → `🚀 드라이브로 보내기` |
+| ⏭️ 이름 모를 때 넘기기 | 사진 선택 → `이 아이 누구예요?` → `지금은 넘기고 나중에 이름 지정하기 →` |
+| 💬 의견 보내기 | 홈 → `💬 의견 보내기` → 내용 입력 → `보내기` |
+| 🔑 관리자 로그인 | 홈 → `🔑 관리자 로그인` → 비밀번호 입력 → `확인` |
+| 📋 요청 승인/거절 | `아이 관리` → 대기 중인 요청 → `✓ 승인` 또는 `✗ 거절` |
+
+---
 
 ## 기술 스택
 
@@ -18,7 +47,10 @@
 | Database / Storage | Supabase (PostgreSQL + Storage) |
 | 구글 드라이브 연동 | Google Drive API v3 (서비스 계정) |
 | 이미지 압축 | browser-image-compression |
+| 이메일 알림 | Resend |
 | 배포 | Vercel |
+
+---
 
 ## 로컬 실행
 
@@ -28,6 +60,8 @@ npm run dev
 ```
 
 브라우저에서 [http://localhost:3000](http://localhost:3000) 접속
+
+---
 
 ## 환경변수 설정
 
@@ -45,8 +79,13 @@ GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----E
 
 # Google Drive 폴더
 GOOGLE_DRIVE_ROOT_FOLDER_ID=your-root-folder-id
-# 공유 드라이브 사용 시 (일반 드라이브면 생략)
-GOOGLE_SHARED_DRIVE_ID=your-shared-drive-id
+GOOGLE_SHARED_DRIVE_ID=your-shared-drive-id  # 공유 드라이브 사용 시
+
+# 관리자
+ADMIN_PASSWORD=your-admin-password
+
+# 의견 이메일 알림 (선택)
+RESEND_API_KEY=your-resend-api-key
 ```
 
 ### 서비스 계정 설정 방법
@@ -56,44 +95,68 @@ GOOGLE_SHARED_DRIVE_ID=your-shared-drive-id
 3. 서비스 계정 키(JSON) 발급 후 `client_email`과 `private_key` 값을 환경변수에 입력
 4. Google Drive에서 업로드할 폴더를 서비스 계정 이메일과 **편집자** 이상으로 공유
 
+---
+
 ## DB 스키마
 
 ```sql
 -- 아이 목록
 CREATE TABLE dogs (
-  dog_id TEXT PRIMARY KEY,
+  dog_id   TEXT PRIMARY KEY,
   dog_name TEXT NOT NULL,
   drive_folder_id TEXT
 );
 
 -- 업로드된 사진
 CREATE TABLE photos (
-  photo_id TEXT PRIMARY KEY,
-  batch_id TEXT,
-  file_name TEXT,
-  saved_name TEXT,
-  upload_user TEXT,
+  photo_id     TEXT PRIMARY KEY,
+  batch_id     TEXT,
+  file_name    TEXT,
+  saved_name   TEXT,
+  upload_user  TEXT,
   storage_path TEXT,
-  status TEXT, -- temp | named | needs_name | sent | failed
-  drive_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  status       TEXT, -- temp | named | needs_name | sent | failed
+  drive_url    TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 사진-아이 다대다 관계 (한 장에 여러 아이 지정 가능)
+-- 사진-아이 다대다 관계
 CREATE TABLE photo_dogs (
   photo_id TEXT REFERENCES photos(photo_id),
-  dog_id TEXT REFERENCES dogs(dog_id),
+  dog_id   TEXT REFERENCES dogs(dog_id),
   PRIMARY KEY (photo_id, dog_id)
 );
 
 -- 업로드 배치
 CREATE TABLE batches (
-  batch_id TEXT PRIMARY KEY,
+  batch_id    TEXT PRIMARY KEY,
   upload_user TEXT,
-  status TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  status      TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 아이 추가/이름 변경 요청
+CREATE TABLE dog_requests (
+  request_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type        TEXT NOT NULL, -- add | rename
+  dog_name    TEXT NOT NULL,
+  new_name    TEXT,
+  dog_id      TEXT,
+  requester   TEXT,
+  status      TEXT DEFAULT 'pending', -- pending | approved | rejected
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 의견/피드백
+CREATE TABLE feedback (
+  feedback_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message     TEXT NOT NULL,
+  sender      TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 ```
+
+---
 
 ## 배포 (Vercel)
 
