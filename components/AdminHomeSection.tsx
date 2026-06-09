@@ -72,23 +72,23 @@ export function AdminHomeSection() {
         {pendingCount > 0 && (
           <Link
             href="/dogs"
-            className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800 hover:bg-amber-100 transition active:scale-95"
+            className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3 text-sm text-orange-800 hover:bg-orange-100 transition active:scale-95"
           >
             <span className="text-lg">🔔</span>
             <span className="flex-1 font-medium">승인 요청 {pendingCount}건 대기 중</span>
-            <span className="text-amber-500 font-bold">→</span>
+            <span className="text-orange-500 font-bold">→</span>
           </Link>
         )}
 
         {/* 관리자 상태 표시 */}
-        <div className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3">
-          <div className="flex items-center gap-2 text-sm text-blue-700">
+        <div className="flex items-center justify-between bg-orange-50 border border-orange-100 rounded-2xl px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-orange-700">
             <span>🔑</span>
             <span className="font-medium">관리자 모드</span>
           </div>
           <button
             onClick={handleLogout}
-            className="text-xs text-blue-400 hover:text-blue-600 transition"
+            className="text-xs text-orange-400 hover:text-orange-600 transition"
           >
             로그아웃
           </button>
@@ -109,13 +109,13 @@ export function AdminHomeSection() {
             onChange={(e) => { setPassword(e.target.value); setLoginError(false); }}
             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
             placeholder="비밀번호 입력"
-            className={`flex-1 border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400
+            className={`flex-1 border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400
               ${loginError ? "border-red-300 bg-red-50" : "border-gray-200"}`}
           />
           <button
             onClick={handleLogin}
             disabled={!password.trim() || checking}
-            className="px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl disabled:opacity-40 active:scale-95 transition"
+            className="px-4 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl disabled:opacity-40 active:scale-95 transition"
           >
             {checking ? "..." : "확인"}
           </button>
@@ -133,11 +133,11 @@ export function AdminHomeSection() {
     );
   }
 
-  // ── 기본 (봉사자 화면) — 관리자 로그인 버튼만 표시
+  // ── 기본 (봉사자 화면) — 관리자 로그인 버튼
   return (
     <button
       onClick={() => setShowLogin(true)}
-      className="text-xs text-gray-400 hover:text-gray-600 text-center py-1 transition"
+      className="w-full text-xs text-gray-400 hover:text-orange-500 text-center py-2 transition"
     >
       관리자 로그인
     </button>

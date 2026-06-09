@@ -193,6 +193,14 @@ function AdminLoginModal({ onClose, onLogin }: { onClose: () => void; onLogin: (
 // ─────────────────────────────────────────────────────────────
 // PendingRequests
 // ─────────────────────────────────────────────────────────────
+// 받침 여부로 '이라는' / '라는' 결정
+function iRaneun(s: string): string {
+  const last = s[s.length - 1];
+  const code = last?.charCodeAt(0) ?? 0;
+  if (code < 0xAC00 || code > 0xD7A3) return "이라는";
+  return (code - 0xAC00) % 28 === 0 ? "라는" : "이라는";
+}
+
 // 유사 이름 찾기: 한글 토큰 기준으로 겹치는 부분이 있으면 유사로 판단
 function findSimilarDogs(requestedName: string, dogs: Dog[]): Dog[] {
   const normalize = (s: string) => s.trim().toLowerCase();
@@ -290,7 +298,7 @@ function PendingRequests({ adminKey, onApproved }: { adminKey: string; onApprove
   return (
     <div className="mx-4 mt-4">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold text-amber-600">
+        <p className="text-xs font-semibold text-orange-600">
           📋 대기 중인 요청 {requests.length > 0 ? `(${requests.length}건)` : ""}
         </p>
         <button
@@ -316,7 +324,7 @@ function PendingRequests({ adminKey, onApproved }: { adminKey: string; onApprove
           {requests.map((req) => {
             const similar = req.type === "add" ? findSimilarDogs(req.requested_name, dogs) : [];
             return (
-              <div key={req.request_id} className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+              <div key={req.request_id} className="bg-orange-50 border border-orange-100 rounded-2xl px-4 py-3">
                 <p className="text-sm font-medium text-gray-800 mb-1">
                   {req.type === "rename"
                     ? `"${req.current_name}" → "${req.requested_name}" 이름 변경`
@@ -329,7 +337,7 @@ function PendingRequests({ adminKey, onApproved }: { adminKey: string; onApprove
                   <div className="mb-3">
                     {similar.map((d) => (
                       <p key={d.dog_id} className="text-xs font-medium text-red-500">
-                        {d.dog_name}이라는 파일이 현재 존재합니다
+                        &apos;{d.dog_name}&apos;{iRaneun(d.dog_name)} 파일이 현재 존재합니다
                       </p>
                     ))}
                   </div>

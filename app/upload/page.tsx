@@ -233,23 +233,17 @@ export default function UploadPage() {
           <p className="text-xs mt-0.5 opacity-75">
             {compressProg.done} / {compressProg.total}장 압축 완료
           </p>
-          <ProgressBar
-            pct={(compressProg.done / compressProg.total) * 100}
-            color="orange"
-          />
+          <ProgressBar pct={(compressProg.done / compressProg.total) * 100} />
         </StatusBanner>
       )}
 
       {/* 배너: 업로드 중 */}
       {isUploading && (
-        <StatusBanner color="blue">
+        <StatusBanner color="orange">
           <p className="font-medium text-sm">
             {uploadProg.done} / {uploadProg.total}장 처리 중...
           </p>
-          <ProgressBar
-            pct={(uploadProg.done / uploadProg.total) * 100}
-            color="blue"
-          />
+          <ProgressBar pct={(uploadProg.done / uploadProg.total) * 100} />
         </StatusBanner>
       )}
 
@@ -370,32 +364,23 @@ function StatusBanner({
   color,
   children,
 }: {
-  color: "orange" | "blue" | "green";
+  color: "orange" | "green";
   children: React.ReactNode;
 }) {
   const cls = {
     orange: "bg-orange-50 border-orange-200 text-orange-700",
-    blue:   "bg-blue-50   border-blue-200   text-blue-700",
     green:  "bg-green-50  border-green-200  text-green-700",
-  }[color];
+  }[color as "orange" | "green"];
   return (
     <div className={`mt-4 rounded-2xl border p-4 ${cls}`}>{children}</div>
   );
 }
 
-function ProgressBar({
-  pct,
-  color,
-}: {
-  pct: number;
-  color: "orange" | "blue";
-}) {
-  const track = color === "orange" ? "bg-orange-200" : "bg-blue-200";
-  const fill  = color === "orange" ? "bg-orange-400" : "bg-blue-400";
+function ProgressBar({ pct }: { pct: number }) {
   return (
-    <div className={`mt-2 h-1.5 rounded-full overflow-hidden ${track}`}>
+    <div className="mt-2 h-1.5 rounded-full overflow-hidden bg-orange-200">
       <div
-        className={`h-full rounded-full transition-all duration-300 ${fill}`}
+        className="h-full rounded-full transition-all duration-300 bg-orange-400"
         style={{ width: `${Math.min(pct, 100)}%` }}
       />
     </div>

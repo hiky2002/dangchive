@@ -100,7 +100,7 @@ function ReviewInner() {
         </Link>
         <h1 className="text-base font-bold text-gray-900">이름 확인 필요</h1>
         {batches.length > 0 && (
-          <span className="ml-auto text-xs font-medium bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+          <span className="ml-auto text-xs font-medium bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
             {batches.length}건
           </span>
         )}

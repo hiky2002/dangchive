@@ -14,30 +14,35 @@ const tabs = [
     label: "사진 정리",
     emoji: "🗂️",
     description: "올린 사진에 아이 이름을 지정해요",
-    color: "from-violet-400 to-violet-500",
+    color: "from-orange-500 to-amber-500",
   },
   {
     href: "/review",
     label: "이름 확인",
     emoji: "✅",
     description: "이름이 필요한 사진을 도와주세요",
-    color: "from-emerald-400 to-emerald-500",
+    color: "from-amber-400 to-orange-500",
   },
 ];
 
 export default function HomePage() {
   return (
-    <main className="max-w-md mx-auto px-4 pt-10 pb-8 flex flex-col min-h-screen">
+    <main className="max-w-md mx-auto px-4 pt-10 pb-8">
 
       {/* 헤더 */}
-      <div className="text-center mb-10">
+      <div className="text-center mb-8">
         <p className="text-5xl mb-3">🐾</p>
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">댕카이브</h1>
         <p className="mt-1.5 text-gray-400 text-sm">LCKD 아이들 사진 아카이브</p>
       </div>
 
+      {/* 관리자 영역 — 카드 위 */}
+      <div className="mb-4">
+        <AdminHomeSection />
+      </div>
+
       {/* 메뉴 카드 */}
-      <div className="flex flex-col gap-3 flex-1">
+      <div className="flex flex-col gap-3">
         {tabs.map((tab) => (
           <Link
             key={tab.href}
@@ -52,11 +57,6 @@ export default function HomePage() {
             <span className="ml-auto text-white/60 text-xl">›</span>
           </Link>
         ))}
-      </div>
-
-      {/* 관리자 영역 — 하단 */}
-      <div className="mt-8">
-        <AdminHomeSection />
       </div>
 
     </main>
