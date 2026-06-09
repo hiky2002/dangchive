@@ -78,9 +78,9 @@ export default function DogsPage() {
           ) : (
             <button
               onClick={() => setShowLogin(true)}
-              className="text-xs font-medium text-[#191F28] bg-white hover:bg-gray-50 px-3 py-1.5 rounded-full transition"
+              className="text-xs font-semibold text-white bg-[#191F28] hover:bg-black px-3.5 py-1.5 rounded-full active:scale-95 transition"
             >
-              관리자 모드
+              🔑 관리자 모드
             </button>
           )}
         </div>
@@ -636,7 +636,7 @@ function UserDogCard({ dog }: { dog: Dog }) {
         {done
           ? <span className="text-xs text-green-600 font-medium">✅ 요청됨</span>
           : <button onClick={() => setOpen(!open)}
-              className="text-xs text-gray-400 hover:text-[#191F28] transition px-2 py-1 rounded-lg hover:bg-gray-50">
+              className="text-xs font-semibold text-[#3182F6] border border-[#3182F6]/30 bg-[#EBF3FF] px-3 py-1.5 rounded-lg active:scale-95 transition">
               이름 변경 요청
             </button>
         }

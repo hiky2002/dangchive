@@ -137,9 +137,11 @@ export function AdminHomeSection() {
   return (
     <button
       onClick={() => setShowLogin(true)}
-      className="w-full text-xs text-[#C2C8D0] hover:text-[#8B95A1] text-center py-2 transition"
+      className="w-full flex items-center gap-3 bg-white rounded-2xl px-4 py-3.5 active:scale-[0.98] transition"
     >
-      관리자 로그인
+      <div className="w-9 h-9 rounded-xl bg-[#F5F5F5] flex items-center justify-center text-lg shrink-0">🔑</div>
+      <span className="flex-1 text-left font-medium text-[#8B95A1] text-sm">관리자 로그인</span>
+      <span className="text-[#C2C8D0] font-bold text-lg">›</span>
     </button>
   );
 }
