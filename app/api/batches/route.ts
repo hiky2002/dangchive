@@ -53,3 +53,25 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ batches });
 }
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/batches — { upload_user: string }
+// 빈 배치를 먼저 생성하고 batch_id를 반환
+// 업로드 페이지가 이 ID를 먼저 받아 모든 파일을 동시에 올릴 수 있도록 함
+// ─────────────────────────────────────────────────────────────
+export async function POST(req: NextRequest) {
+  const { upload_user } = await req.json();
+  const supabase = createServiceClient();
+
+  const { data, error } = await supabase
+    .from("batches")
+    .insert({ upload_user: (upload_user ?? "anonymous").trim(), status: "pending" })
+    .select("batch_id")
+    .single();
+
+  if (error || !data) {
+    return NextResponse.json({ error: error?.message ?? "배치 생성 실패" }, { status: 500 });
+  }
+
+  return NextResponse.json({ batch_id: data.batch_id }, { status: 201 });
+}

@@ -106,7 +106,7 @@ export default function UploadPage() {
     setPhase("ready");
   }
 
-  // ── 올리기: 첫 번째 파일로 배치 생성 → 이후 batch_id 재사용
+  // ── 올리기: batch_id 먼저 생성 → 전체 동시 업로드
   async function handleUpload() {
 
     const ready = items.filter((it) => it.compressState === "done" && it.compressed);
@@ -116,42 +116,38 @@ export default function UploadPage() {
     setUploadProg({ done: 0, total: ready.length });
     setError(null);
 
+    // 1단계: batch_id만 먼저 생성 (파일 없이 즉시 반환)
     let localBatchId: string | null = null;
-    let failCount = 0;
-    let uploadDone = 0;
-
-    // 첫 장으로 배치 ID 먼저 생성
-    const firstItem = ready[0];
-    const firstFd = new FormData();
-    firstFd.append("file",        firstItem.compressed!);
-    firstFd.append("file_name",   firstItem.original.name);
-    firstFd.append("upload_user", nickname.trim());
     try {
-      const res = await fetch("/api/upload", { method: "POST", body: firstFd });
+      const res = await fetch("/api/batches", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ upload_user: nickname.trim() }),
+      });
       if (!res.ok) throw new Error();
       const data = await res.json();
       localBatchId = data.batch_id;
-      setBatchId(data.batch_id);
-      setItems((prev) => prev.map((p) => p.id === firstItem.id ? { ...p, uploadState: "done" } : p));
+      setBatchId(localBatchId);
     } catch {
-      failCount++;
-      setItems((prev) => prev.map((p) => p.id === firstItem.id ? { ...p, uploadState: "error" } : p));
+      setError("업로드 준비에 실패했습니다. 다시 시도해 주세요.");
+      setPhase("ready");
+      return;
     }
-    uploadDone++;
-    setUploadProg({ done: uploadDone, total: ready.length });
 
-    // 나머지 4개씩 병렬 업로드
-    const UPLOAD_CONCURRENCY = 4;
-    const rest = ready.slice(1);
-    for (let i = 0; i < rest.length; i += UPLOAD_CONCURRENCY) {
-      const chunk = rest.slice(i, i + UPLOAD_CONCURRENCY);
+    // 2단계: 전체 파일 동시 업로드 (6개씩)
+    let failCount  = 0;
+    let uploadDone = 0;
+    const UPLOAD_CONCURRENCY = 6;
+
+    for (let i = 0; i < ready.length; i += UPLOAD_CONCURRENCY) {
+      const chunk = ready.slice(i, i + UPLOAD_CONCURRENCY);
       await Promise.all(
         chunk.map(async (item) => {
           const fd = new FormData();
           fd.append("file",        item.compressed!);
           fd.append("file_name",   item.original.name);
           fd.append("upload_user", nickname.trim());
-          if (localBatchId) fd.append("batch_id", localBatchId);
+          fd.append("batch_id",    localBatchId!);
           try {
             const res = await fetch("/api/upload", { method: "POST", body: fd });
             if (!res.ok) throw new Error();
