@@ -704,8 +704,9 @@ function SyncButton({ adminKey, onSync }: { adminKey: string; onSync: () => void
       const parts: string[] = [];
       if (data.added > 0)   parts.push(`${data.added}마리 등록`);
       if (data.updated > 0) parts.push(`${data.updated}마리 연결`);
+      if (data.removed > 0) parts.push(`${data.removed}마리 제거`);
       setResult(parts.length > 0 ? parts.join(", ") : "변경 없음");
-      if (data.added > 0 || data.updated > 0) onSync();
+      if (data.added > 0 || data.updated > 0 || data.removed > 0) onSync();
       setTimeout(() => setResult(null), 4000);
     } catch {
       setResult("오류");

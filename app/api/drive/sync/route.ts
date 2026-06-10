@@ -55,7 +55,27 @@ export async function POST() {
       if (!updateErr) updated++;
     }
 
-    return NextResponse.json({ added: inserted.length, updated, dogs: inserted });
+    // ── Drive에 없는 아이 DB에서 제거
+    // drive_folder_id가 있는데 Drive 폴더 목록에 없으면 삭제
+    const driveFolderIds = new Set(driveFolders.map((f) => f.id));
+    const toRemove = existing.filter(
+      (d) => d.drive_folder_id && !driveFolderIds.has(d.drive_folder_id)
+    );
+
+    let removed = 0;
+    if (toRemove.length > 0) {
+      const removeIds = toRemove.map((d) => d.dog_id);
+      const { error: removeErr } = await supabase
+        .from("dogs")
+        .delete()
+        .in("dog_id", removeIds);
+      if (!removeErr) {
+        removed = toRemove.length;
+        console.log(`[sync] Drive에 없는 아이 ${removed}마리 제거:`, toRemove.map((d) => d.dog_name));
+      }
+    }
+
+    return NextResponse.json({ added: inserted.length, updated, removed, dogs: inserted });
   } catch (err) {
     const message    = err instanceof Error ? err.message : String(err);
     const httpStatus = (err as any)?.response?.status;

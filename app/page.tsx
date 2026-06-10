@@ -69,11 +69,14 @@ export default function HomePage() {
           <span className="text-[#C2C8D0] font-bold text-lg">›</span>
         </Link>
 
-        {/* 관리자 로그인 */}
-        <AdminHomeSection />
-
         {/* 의견 보내기 */}
         <FeedbackButton />
+
+      </div>
+
+      {/* 관리자 로그인 */}
+      <div className="mt-6">
+        <AdminHomeSection />
       </div>
 
     </main>
