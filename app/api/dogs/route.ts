@@ -12,7 +12,9 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ dogs: data });
+  return NextResponse.json({ dogs: data }, {
+    headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=60" },
+  });
 }
 
 // POST /api/dogs — { dog_name }

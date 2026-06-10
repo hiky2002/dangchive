@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Photo } from "@/types";
 
-function getPhotoUrl(path: string) {
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/dangchive/${path}`;
+function getPhotoUrl(path: string, width = 300) {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/render/image/public/dangchive/${path}?width=${width}&quality=75`;
 }
 
 export function FailedPhotoBanner() {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { createDriveClient } from "@/lib/google-drive";
+import { trashDriveFile } from "@/lib/google-drive";
 
 // drive_url 에서 파일 ID 추출
 // "https://drive.google.com/file/d/FILE_ID/view?usp=..." → "FILE_ID"
@@ -19,7 +19,6 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = createServiceClient();
-  const drive    = createDriveClient();
 
   // DB에서 해당 사진 조회 (sent 상태여야 함)
   const { data: photos, error: fetchErr } = await supabase
@@ -43,11 +42,7 @@ export async function POST(req: NextRequest) {
     let driveError: string | undefined;
     if (fileId) {
       try {
-        await drive.files.update({
-          fileId,
-          requestBody: { trashed: true },
-          supportsAllDrives: true,
-        });
+        await trashDriveFile(fileId);
       } catch (err) {
         driveError = err instanceof Error ? err.message : String(err);
         console.warn(`[drive/delete] Drive 삭제 실패 (계속 진행): ${photo.photo_id} — ${driveError}`);

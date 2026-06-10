@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { createDriveClient, ensureDogFolder, countFilesInFolder, sharedDriveParams } from "@/lib/google-drive";
-import { Readable } from "stream";
+import { uploadFileToDrive, ensureDogFolder, countFilesInFolder, sharedDriveParams } from "@/lib/google-drive";
 
 // POST /api/drive/send — { photo_ids: string[] }
 export async function POST(req: NextRequest) {
@@ -62,7 +61,6 @@ export async function POST(req: NextRequest) {
     sharedDriveId: process.env.GOOGLE_SHARED_DRIVE_ID ?? "❌ 없음",
   });
 
-  const drive = createDriveClient();
 
   // 아이별 { folderId, nextSeq } 캐시 (요청 내 중복 드라이브 API 호출 방지)
   const dogCache = new Map<string, { folderId: string; nextSeq: number }>();
@@ -122,15 +120,9 @@ export async function POST(req: NextRequest) {
             const savedName = `${yy}${mm}${dd}_${dogNames}_${seqStr}.jpg`;
             cached.nextSeq++;
 
-            const stream = Readable.from(buffer);
-            const driveRes = await drive.files.create({
-              requestBody: { name: savedName, parents: [folderId] },
-              media:       { mimeType: "image/jpeg", body: stream },
-              fields:      "id, webViewLink",
-              supportsAllDrives: true,
-            });
-            if (!firstDriveUrl) firstDriveUrl = driveRes.data.webViewLink ?? null;
-            console.log(`[drive/send] ✅ ${photo.photo_id} → ${driveRes.data.id}`);
+            const driveRes = await uploadFileToDrive(folderId, savedName, buffer);
+            if (!firstDriveUrl) firstDriveUrl = driveRes.webViewLink ?? null;
+            console.log(`[drive/send] ✅ ${photo.photo_id} → ${driveRes.id}`);
           }
 
           // ── 4. DB 업데이트
