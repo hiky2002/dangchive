@@ -97,14 +97,21 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         .single();
 
       if (newDog) {
+        let driveWarning: string | undefined;
         try {
           const folderId = await ensureDogFolder(newDog.dog_name);
           await supabase
             .from("dogs")
             .update({ drive_folder_id: folderId })
             .eq("dog_id", newDog.dog_id);
-        } catch {
-          // 폴더 생성 실패해도 아이 등록은 유지
+        } catch (driveErr) {
+          // 폴더 생성 실패해도 아이 등록은 유지 — 경고만 로그
+          driveWarning = driveErr instanceof Error ? driveErr.message : String(driveErr);
+          console.error("[approve] Drive 폴더 생성 실패:", driveWarning);
+        }
+        if (driveWarning) {
+          await supabase.from("dog_requests").update({ status: "approved" }).eq("request_id", request_id);
+          return NextResponse.json({ ok: true, drive_warning: driveWarning });
         }
       }
     }
