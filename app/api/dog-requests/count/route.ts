@@ -15,5 +15,7 @@ export async function GET() {
 
   if (error) return NextResponse.json({ count: 0 });
 
-  return NextResponse.json({ count: count ?? 0 });
+  return NextResponse.json({ count: count ?? 0 }, {
+    headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+  });
 }

@@ -22,7 +22,9 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ requests: data });
+  return NextResponse.json({ requests: data }, {
+    headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+  });
 }
 
 // POST /api/dog-requests — { type, requester, dog_id?, current_name?, requested_name }

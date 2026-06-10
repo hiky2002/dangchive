@@ -282,7 +282,7 @@ function PendingRequests({ adminKey, onApproved }: { adminKey: string; onApprove
   async function loadRequests(manual = false) {
     if (manual) setRefreshing(true);
     try {
-      const res = await fetch("/api/dog-requests?status=pending", { headers: { "x-admin-key": adminKey } });
+      const res = await fetch("/api/dog-requests?status=pending", { headers: { "x-admin-key": adminKey }, cache: "no-store" });
       if (!res.ok) {
         let errMsg = `HTTP ${res.status}`;
         try { const d = await res.json(); if (d.error) errMsg += ` — ${d.error}`; } catch {}
