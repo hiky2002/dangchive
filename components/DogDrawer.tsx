@@ -313,7 +313,7 @@ export function DogDrawer({
               </div>
               {onSkip && (
                 <button
-                  onClick={async () => { await cancelRequest(); onSkip(); }}
+                  onClick={() => { stopPolling(); onSkip(); }}
                   className="w-full text-sm text-amber-700 font-medium bg-amber-100 hover:bg-amber-200 py-2 rounded-xl transition active:scale-95"
                 >
                   지금은 넘기고 나중에 이름 지정하기 →
