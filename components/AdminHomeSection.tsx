@@ -17,22 +17,21 @@ export function AdminHomeSection() {
     const key = sessionStorage.getItem(ADMIN_KEY);
     if (key) {
       setIsAdmin(true);
-      fetchPendingCount(key);
     }
+    // 비로그인 상태에서도 카운트 표시
+    fetchPendingCount();
 
     // 페이지가 다시 포커스/visible될 때 카운트 재조회 (아이 관리 탭에서 돌아왔을 때 등)
     function handleVisibility() {
       if (document.visibilityState === "visible") {
-        const k = sessionStorage.getItem(ADMIN_KEY);
-        if (k) fetchPendingCount(k);
+        fetchPendingCount();
       }
     }
     document.addEventListener("visibilitychange", handleVisibility);
 
     // 30초마다 자동 갱신
     const interval = setInterval(() => {
-      const k = sessionStorage.getItem(ADMIN_KEY);
-      if (k) fetchPendingCount(k);
+      fetchPendingCount();
     }, 30_000);
 
     return () => {
@@ -41,9 +40,9 @@ export function AdminHomeSection() {
     };
   }, []); // eslint-disable-line
 
-  async function fetchPendingCount(key?: string) {
+  async function fetchPendingCount() {
     try {
-      const res = await fetch("/api/dog-requests/count");
+      const res = await fetch("/api/dog-requests/count", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setPendingCount(data.count ?? 0);
@@ -155,13 +154,23 @@ export function AdminHomeSection() {
 
   // ── 기본 (봉사자 화면) — 관리자 로그인 버튼
   return (
-    <button
-      onClick={() => setShowLogin(true)}
-      className="w-full flex items-center gap-3 bg-white rounded-2xl px-4 py-3.5 active:scale-[0.98] transition"
-    >
-      <div className="w-9 h-9 rounded-xl bg-[#F5F5F5] flex items-center justify-center text-lg shrink-0">🔑</div>
-      <span className="flex-1 text-left font-medium text-[#8B95A1] text-sm">관리자 로그인</span>
-      <span className="text-[#C2C8D0] font-bold text-lg">›</span>
-    </button>
+    <div className="flex flex-col gap-2">
+      {pendingCount > 0 && (
+        <div className="flex items-center gap-3 bg-white rounded-2xl px-4 py-3">
+          <div className="w-8 h-8 rounded-lg bg-[#FFF0E6] flex items-center justify-center text-base shrink-0">🔔</div>
+          <span className="flex-1 text-sm text-[#191F28]">
+            관리자에게 전달된 요청이 <span className="font-bold">{pendingCount}건</span> 있어요
+          </span>
+        </div>
+      )}
+      <button
+        onClick={() => setShowLogin(true)}
+        className="w-full flex items-center gap-3 bg-white rounded-2xl px-4 py-3.5 active:scale-[0.98] transition"
+      >
+        <div className="w-9 h-9 rounded-xl bg-[#F5F5F5] flex items-center justify-center text-lg shrink-0">🔑</div>
+        <span className="flex-1 text-left font-medium text-[#8B95A1] text-sm">관리자 로그인</span>
+        <span className="text-[#C2C8D0] font-bold text-lg">›</span>
+      </button>
+    </div>
   );
 }
